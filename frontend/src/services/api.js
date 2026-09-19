@@ -1,0 +1,77 @@
+import axios from 'axios';
+
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const TOKEN_KEY = 'smartlab_token';
+const PORTAL_KEY = 'smartlab_portal';
+
+export const tokenStore = {
+  get: () => localStorage.getItem(TOKEN_KEY),
+  set: (token) => localStorage.setItem(TOKEN_KEY, token),
+  clear: () => {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(PORTAL_KEY);
+  },
+};
+
+/**
+ * Which sign-in page this session came from, so an expired session is sent
+ * back to the right one instead of dropping an administrator on the
+ * student page.
+ */
+export const portalStore = {
+  get: () => localStorage.getItem(PORTAL_KEY) || 'public',
+  set: (portal) => localStorage.setItem(PORTAL_KEY, portal),
+};
+
+export const loginPathFor = (portal) => (portal === 'admin' ? '/admin/login' : '/login');
+
+const api = axios.create({
+  baseURL: BASE_URL,
+  headers: { 'Content-Type': 'application/json' },
+  timeout: 20000,
+});
+
+// Attach the bearer token to every request.
+api.interceptors.request.use((config) => {
+  const token = tokenStore.get();
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+/**
+ * Normalises every failure into an Error with a message that is safe and
+ * useful to show a user, so components never have to unwrap axios shapes.
+ */
+api.interceptors.response.use(
+  (response) => response.data,
+  (error) => {
+    if (error.code === 'ECONNABORTED') {
+      return Promise.reject(new Error('The request timed out. Please try again.'));
+    }
+
+    if (!error.response) {
+      return Promise.reject(
+        new Error('Cannot reach the SMARTLAB server. Check that the API is running on port 5000.')
+      );
+    }
+
+    const { status, data } = error.response;
+
+    // An expired or invalid session: clear it and send the user to login,
+    // unless they are already on the login screen submitting credentials.
+    if (status === 401 && !error.config?.url?.includes('/auth/login')) {
+      const target = loginPathFor(portalStore.get());
+      tokenStore.clear();
+      if (window.location.pathname !== target) {
+        window.location.assign(`${target}?expired=1`);
+      }
+    }
+
+    const err = new Error(data?.message || 'Something went wrong. Please try again.');
+    err.status = status;
+    err.fields = data?.errors || null;
+    return Promise.reject(err);
+  }
+);
+
+export default api;

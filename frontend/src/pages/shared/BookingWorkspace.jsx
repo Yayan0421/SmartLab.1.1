@@ -1,0 +1,504 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import bookingService from '../../services/bookingService.js';
+import { useToast } from '../../context/ToastContext.jsx';
+import { useAuth } from '../../context/AuthContext.jsx';
+import Spinner from '../../components/Spinner.jsx';
+import ErrorState from '../../components/ErrorState.jsx';
+import usePolling from '../../hooks/usePolling.js';
+import {
+  LAB_SUBJECTS,
+  BOOKING_PURPOSES,
+  DEFAULT_POLICY,
+  buildTimeSlots,
+  describeDays,
+  toDbTime,
+} from '../../utils/labConstants.js';
+import { formatTimeRange, todayISO, addDaysISO } from '../../utils/format.js';
+
+/**
+ * The booking workspace used by both students and faculty.
+ *
+ * Three panels: the booking form, the week's laboratory schedule as a
+ * time × workstation grid, and the list of machines free for the chosen
+ * slot. Selecting cells in the grid and cards in the list are two routes to
+ * the same selection, so people can work whichever way they think.
+ *
+ * Everything shown here is a convenience. The server re-runs every booking
+ * rule when the reservation is submitted.
+ */
+export default function BookingWorkspace() {
+  const toast = useToast();
+  const { user } = useAuth();
+
+  const [policy, setPolicy] = useState(DEFAULT_POLICY);
+  const [date, setDate] = useState('');
+  const [slotIndex, setSlotIndex] = useState(0);
+  const [subject, setSubject] = useState(LAB_SUBJECTS[0]);
+  const [purpose, setPurpose] = useState(BOOKING_PURPOSES[0]);
+  const [selected, setSelected] = useState([]);
+
+  const [schedule, setSchedule] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  // The timetable comes from the laboratory's opening hours, so the form can
+  // never offer a slot the server would refuse.
+  const timeSlots = useMemo(
+    () => buildTimeSlots(policy.open_time, policy.close_time),
+    [policy.open_time, policy.close_time]
+  );
+
+  const slot = timeSlots[Math.min(slotIndex, timeSlots.length - 1)];
+
+  /**
+   * The day tabs: the next open days only. A closed day is never offered,
+   * rather than shown and then rejected on submit.
+   */
+  const week = useMemo(() => {
+    const days = [];
+    for (let i = 0; i <= policy.advance_days && days.length < 8; i += 1) {
+      const iso = addDaysISO(i);
+      const weekday = new Date(`${iso}T00:00:00Z`).getUTCDay();
+      if (!policy.open_days.includes(weekday)) continue;
+      const d = new Date(`${iso}T00:00:00`);
+      days.push({
+        iso,
+        weekday: d.toLocaleDateString(undefined, { weekday: 'short' }),
+        label: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+      });
+    }
+    return days;
+  }, [policy]);
+
+  // Load the rules once, then settle on the first open day.
+  useEffect(() => {
+    let cancelled = false;
+    bookingService
+      .policy()
+      .then((res) => {
+        if (!cancelled) setPolicy({ ...DEFAULT_POLICY, ...res.data });
+      })
+      .catch(() => {
+        /* keep the defaults if the policy cannot be read */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!date && week.length) setDate(week[0].iso);
+  }, [week, date]);
+
+  const load = useCallback(async () => {
+    if (!date) return;
+    try {
+      const res = await bookingService.schedule(date);
+      setSchedule(res.data);
+      setError(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [date]);
+
+  useEffect(() => {
+    setLoading(true);
+    setSelected([]);
+    load();
+  }, [load]);
+
+  // Someone else may book a machine while this page is open.
+  usePolling(load, 30_000);
+
+  const computers = schedule?.computers ?? [];
+  const bookings = schedule?.bookings ?? [];
+
+  /** Is this machine taken during the given slot? Returns the booking. */
+  const bookingFor = useCallback(
+    (computerId, theSlot) => {
+      const start = toDbTime(theSlot.start);
+      const end = toDbTime(theSlot.end);
+      return bookings.find(
+        (b) => b.computer_id === computerId && start < b.end_time && end > b.start_time
+      );
+    },
+    [bookings]
+  );
+
+  /**
+   * Mirrors the server rule exactly (see backend validateBookingRequest):
+   * only a machine withdrawn from booking or under maintenance is blocked.
+   *
+   * OFFLINE is deliberately *not* blocking — it only means the monitoring
+   * agent is not reporting at this moment, which says nothing about whether
+   * the machine can be reserved for a slot later today or next week.
+   */
+  const isFree = useCallback(
+    (computer, theSlot) =>
+      computer.is_bookable &&
+      computer.status !== 'MAINTENANCE' &&
+      !bookingFor(computer.id, theSlot),
+    [bookingFor]
+  );
+
+  const slotIsPast = useCallback(
+    (theSlot) => {
+      if (date !== todayISO()) return false;
+      const now = new Date();
+      const clock = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      return theSlot.end <= clock;
+    },
+    [date]
+  );
+
+  const availableNow = computers.filter((c) => isFree(c, slot) && !slotIsPast(slot));
+
+  function toggle(computer) {
+    if (!isFree(computer, slot) || slotIsPast(slot)) return;
+    setSelected((current) =>
+      current.includes(computer.id)
+        ? current.filter((id) => id !== computer.id)
+        : [...current, computer.id]
+    );
+  }
+
+  async function submit(event) {
+    event.preventDefault();
+
+    if (!selected.length) {
+      return toast.error('Select at least one computer from the schedule or the list below.');
+    }
+    if (slotIsPast(slot)) {
+      return toast.error('That time slot has already passed.');
+    }
+
+    setSubmitting(true);
+    try {
+      const payload = {
+        booking_date: date,
+        start_time: toDbTime(slot.start),
+        end_time: toDbTime(slot.end),
+        purpose,
+        subject,
+      };
+
+      const res =
+        selected.length === 1
+          ? await bookingService.create({ ...payload, computer_id: selected[0] })
+          : await bookingService.createBulk({ ...payload, computer_ids: selected });
+
+      const created = Array.isArray(res.data) ? res.data : [res.data];
+      const approved = created[0]?.status === 'APPROVED';
+
+      toast.success(
+        approved
+          ? `${created.length} computer${created.length > 1 ? 's' : ''} reserved for you.`
+          : `Request for ${created.length} computer${created.length > 1 ? 's' : ''} sent for approval.`
+      );
+
+      setSelected([]);
+      load();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (loading && !schedule) return <Spinner label="Loading the laboratory schedule…" />;
+  if (error && !schedule) return <ErrorState message={error} onRetry={load} />;
+
+  return (
+    <>
+      <div className="page-head">
+        <div>
+          <h1>Welcome, {user?.full_name?.split(' ')[0]}!</h1>
+          <p className="subtitle">
+            Book a computer for your laboratory subject, class activity or research.
+          </p>
+          <p className="small muted" style={{ marginTop: '0.2rem' }}>
+            Laboratory hours: {describeDays(policy.open_days)}, {policy.open_time} to{' '}
+            {policy.close_time}.
+          </p>
+        </div>
+      </div>
+
+      <div className="book-layout">
+        {/* ---------------- booking form ---------------- */}
+        <section className="card book-form">
+          <div className="card-header">
+            <h2>
+              <span className="book-ico" aria-hidden="true">🖥</span> Book a Computer
+            </h2>
+          </div>
+
+          <form className="card-body stack" onSubmit={submit}>
+            <div className="field">
+              <label htmlFor="bk-date">Date</label>
+              <select
+                id="bk-date"
+                className="select"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                disabled={submitting}
+              >
+                {week.map((day) => (
+                  <option key={day.iso} value={day.iso}>
+                    {day.weekday}, {day.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="field">
+              <label htmlFor="bk-time">Time</label>
+              <select
+                id="bk-time"
+                className="select"
+                value={slotIndex}
+                onChange={(e) => {
+                  setSlotIndex(Number(e.target.value));
+                  setSelected([]);
+                }}
+                disabled={submitting}
+              >
+                {timeSlots.map((s, i) => (
+                  <option key={s.start} value={i} disabled={slotIsPast(s)}>
+                    {formatTimeRange(toDbTime(s.start), toDbTime(s.end))}
+                    {slotIsPast(s) ? ' — passed' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* The laboratory subject this session is for. */}
+            <div className="field">
+              <label htmlFor="bk-subject">Subject</label>
+              <select
+                id="bk-subject"
+                className="select"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                disabled={submitting}
+              >
+                {LAB_SUBJECTS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="field">
+              <label htmlFor="bk-purpose">Purpose</label>
+              <select
+                id="bk-purpose"
+                className="select"
+                value={purpose}
+                onChange={(e) => setPurpose(e.target.value)}
+                disabled={submitting}
+              >
+                {BOOKING_PURPOSES.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="field">
+              <label>Selected computers</label>
+              <div className="book-count">
+                <strong>{selected.length}</strong>
+                <span className="muted small">
+                  {selected.length === 0
+                    ? 'Pick from the schedule or the list below'
+                    : computers
+                        .filter((c) => selected.includes(c.id))
+                        .map((c) => c.name)
+                        .join(', ')}
+                </span>
+              </div>
+            </div>
+
+            <button type="submit" className="btn btn-primary btn-block" disabled={submitting}>
+              {submitting
+                ? 'Submitting…'
+                : selected.length > 1
+                  ? `Book ${selected.length} computers`
+                  : 'Book computer'}
+            </button>
+
+            <p className="small muted" style={{ marginBottom: 0 }}>
+              {user?.role === 'faculty'
+                ? 'Faculty bookings are confirmed immediately.'
+                : 'Student bookings are sent to an administrator for approval.'}
+            </p>
+          </form>
+        </section>
+
+        {/* ---------------- schedule grid ---------------- */}
+        <section className="card book-schedule">
+          <div className="card-header">
+            <h2>
+              <span className="book-ico" aria-hidden="true">🗓</span> Computer Lab Schedule
+            </h2>
+            <span className="small muted">
+              Open {describeDays(policy.open_days)} · {policy.open_time}–{policy.close_time}
+            </span>
+          </div>
+
+          <div className="day-tabs">
+            {week.map((day) => (
+              <button
+                key={day.iso}
+                type="button"
+                className={`day-tab ${date === day.iso ? 'is-active' : ''}`}
+                onClick={() => setDate(day.iso)}
+              >
+                <span className="day-name">{day.weekday}</span>
+                <span className="day-date">{day.label}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="grid-scroll">
+            <table className="sched-grid">
+              <thead>
+                <tr>
+                  <th className="sched-time-head">Time</th>
+                  {computers.map((c) => (
+                    <th key={c.id} title={c.name}>
+                      {c.name}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {timeSlots.map((s, i) => {
+                  const past = slotIsPast(s);
+                  return (
+                    <tr key={s.start} className={i === slotIndex ? 'is-current' : ''}>
+                      <th className="sched-time">
+                        {s.start} - {s.end}
+                      </th>
+
+                      {computers.map((computer) => {
+                        const booked = bookingFor(computer.id, s);
+                        const free = isFree(computer, s) && !past;
+                        const isSelected = i === slotIndex && selected.includes(computer.id);
+
+                        let cls = 'free';
+                        let title = `${computer.name} available`;
+
+                        if (past) {
+                          cls = 'past';
+                          title = 'This slot has passed';
+                        } else if (booked) {
+                          cls = booked.mine ? 'mine' : 'taken';
+                          title = booked.mine
+                            ? `Your booking — ${booked.subject ?? booked.purpose ?? ''}`
+                            : 'Already booked';
+                        } else if (!computer.is_bookable || computer.status === 'MAINTENANCE') {
+                          cls = 'blocked';
+                          title = 'Under maintenance — cannot be booked';
+                        } else if (computer.status === 'OFFLINE') {
+                          // Bookable, but worth flagging that nothing is reporting.
+                          cls = 'free idle';
+                          title = `${computer.name} available (monitoring agent not reporting)`;
+                        }
+
+                        return (
+                          <td key={computer.id}>
+                            <button
+                              type="button"
+                              className={`cell ${cls} ${isSelected ? 'is-selected' : ''}`}
+                              title={title}
+                              aria-label={`${computer.name} ${s.start} ${title}`}
+                              disabled={!free}
+                              onClick={() => {
+                                setSlotIndex(i);
+                                if (i !== slotIndex) setSelected([computer.id]);
+                                else toggle(computer);
+                              }}
+                            />
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="legend">
+            <span className="legend-item"><i className="dot free" /> Available</span>
+            <span className="legend-item"><i className="dot taken" /> Booked</span>
+            <span className="legend-item"><i className="dot mine" /> Yours</span>
+            <span className="legend-item"><i className="dot blocked" /> Unavailable</span>
+            <span className="legend-item"><i className="dot is-selected-key" /> Selected</span>
+          </div>
+        </section>
+      </div>
+
+      {/* ---------------- available computers ---------------- */}
+      <section className="card" style={{ marginTop: '1rem' }}>
+        <div className="card-header">
+          <h2>
+            <span className="book-ico" aria-hidden="true">🖥</span> Available Computers
+          </h2>
+          <span className="small muted">
+            {formatTimeRange(toDbTime(slot.start), toDbTime(slot.end))} ·{' '}
+            {availableNow.length} of {computers.length} free
+          </span>
+        </div>
+
+        <div className="card-body">
+          {slotIsPast(slot) ? (
+            <p className="muted small" style={{ margin: 0 }}>
+              This time slot has already passed. Choose a later slot or another day.
+            </p>
+          ) : (
+            <div className="avail-grid">
+              {computers.map((computer) => {
+                const booked = bookingFor(computer.id, slot);
+                const free = isFree(computer, slot);
+                const isSelected = selected.includes(computer.id);
+
+                const state = booked
+                  ? booked.mine
+                    ? 'Yours'
+                    : 'Occupied'
+                  : computer.status === 'MAINTENANCE' || !computer.is_bookable
+                    ? 'Maintenance'
+                    : 'Available';
+
+                return (
+                  <button
+                    key={computer.id}
+                    type="button"
+                    className={`avail-card ${free ? 'is-free' : 'is-busy'} ${isSelected ? 'is-selected' : ''}`}
+                    onClick={() => toggle(computer)}
+                    disabled={!free}
+                  >
+                    <span className="avail-ico" aria-hidden="true">🖥</span>
+                    <span className="avail-body">
+                      <span className="avail-name">{computer.name}</span>
+                      <span className={`avail-state ${free ? 'ok' : ''}`}>
+                        <i className="dot-sm" /> {state}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </section>
+    </>
+  );
+}

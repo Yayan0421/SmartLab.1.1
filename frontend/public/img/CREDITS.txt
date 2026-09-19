@@ -1,0 +1,7 @@
+computer-lab.jpg
+  Source : Unsplash (https://unsplash.com)
+  Licence: Unsplash License - free to use, no attribution required.
+  Used as the background of the SMARTLAB sign-in and registration pages.
+
+Replace this file with a photo of your own laboratory if you prefer:
+keep the same filename and the pages will pick it up automatically.
