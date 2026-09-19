@@ -20,18 +20,29 @@ app.set('trust proxy', 1);
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(compression());
 
+/**
+ * Private-network addresses, so a phone or a second laptop on the same
+ * Wi-Fi can use the app during development. Only consulted when NODE_ENV is
+ * not production — a deployed server accepts CORS_ORIGIN and nothing else.
+ */
+const PRIVATE_LAN = /^https?:\/\/(localhost|127\.\d+\.\d+\.\d+|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/;
+
 app.use(
   cors({
     origin(origin, callback) {
       // Same-origin and tooling requests arrive without an Origin header.
-      if (!origin || env.corsOrigins.includes(origin)) return callback(null, true);
+      if (!origin) return callback(null, true);
+      if (env.corsOrigins.includes(origin)) return callback(null, true);
+      if (!env.isProduction && PRIVATE_LAN.test(origin)) return callback(null, true);
       return callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
   })
 );
 
-app.use(express.json({ limit: '1mb' }));
+// 3mb covers a base64 profile picture (the browser resizes to a 256px
+// square first, so a real upload is far smaller than this).
+app.use(express.json({ limit: '3mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(morgan(env.isProduction ? 'combined' : 'dev'));
 

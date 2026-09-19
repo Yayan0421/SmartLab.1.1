@@ -8,9 +8,11 @@ import {
   MailIcon,
   LockIcon,
   IdIcon,
-  BuildingIcon,
   UserPlusIcon,
+  BuildingIcon,
+  CapIcon,
 } from '../../components/icons.jsx';
+import { PROGRAMS, coursesFor } from '../../utils/labConstants.js';
 
 const EMPTY = {
   full_name: '',
@@ -19,6 +21,7 @@ const EMPTY = {
   confirm: '',
   role: 'student',
   department: '',
+  course: '',
   id_number: '',
 };
 
@@ -46,6 +49,10 @@ export default function Register() {
     if (!form.email.trim()) nextErrors.email = 'Email is required.';
     if (form.password.length < 8) nextErrors.password = 'At least 8 characters.';
     if (form.password !== form.confirm) nextErrors.confirm = 'The passwords do not match.';
+    if (!form.department) nextErrors.department = 'Choose your programme.';
+    if (form.role === 'student' && !form.course) {
+      nextErrors.course = 'Choose your course and year level.';
+    }
     if (Object.keys(nextErrors).length) return setErrors(nextErrors);
 
     setSubmitting(true);
@@ -57,7 +64,9 @@ export default function Register() {
         email: form.email.trim(),
         password: form.password,
         role: form.role,
-        department: form.department.trim(),
+        department: form.department,
+        // Faculty belong to a programme but have no year level.
+        course: form.role === 'student' ? form.course : '',
         id_number: form.id_number.trim(),
       });
       toast.success('Your account is ready.');
@@ -118,7 +127,10 @@ export default function Register() {
                         }
                       : undefined
                   }
-                  onClick={() => update('role', option.value)}
+                  onClick={() => {
+                    update('role', option.value);
+                    if (option.value !== 'student') update('course', '');
+                  }}
                   disabled={submitting}
                   aria-pressed={form.role === option.value}
                 >
@@ -153,27 +165,71 @@ export default function Register() {
               valid={/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email)}
             />
 
-            <div className="auth-grid">
-              <AuthInput
-                id="id_number"
-                icon={IdIcon}
-                value={form.id_number}
-                onChange={(v) => update('id_number', v)}
-                placeholder={form.role === 'student' ? 'Student no.' : 'Employee no.'}
-                disabled={submitting}
-                maxLength={60}
-              />
-
-              <AuthInput
-                id="department"
-                icon={BuildingIcon}
-                value={form.department}
-                onChange={(v) => update('department', v)}
-                placeholder="Department"
-                disabled={submitting}
-                maxLength={120}
-              />
+            {/* Programme first; the course list follows from it. */}
+            <div className="af">
+              <div className={`af-shell ${errors.department ? 'is-error' : ''}`}>
+                <span className="af-icon" aria-hidden="true">
+                  <BuildingIcon />
+                </span>
+                <select
+                  id="program"
+                  className="af-input af-select"
+                  value={form.department}
+                  onChange={(e) => {
+                    // Changing programme clears a course that no longer belongs to it.
+                    update('department', e.target.value);
+                    update('course', '');
+                  }}
+                  disabled={submitting}
+                >
+                  <option value="">Select your programme…</option>
+                  {PROGRAMS.map((program) => (
+                    <option key={program} value={program}>
+                      {program}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {errors.department && <span className="af-error">{errors.department}</span>}
             </div>
+
+            {/* Year level applies to students only. */}
+            {form.role === 'student' && (
+              <div className="af">
+                <div className={`af-shell ${errors.course ? 'is-error' : ''} ${!form.department ? 'is-disabled' : ''}`}>
+                  <span className="af-icon" aria-hidden="true">
+                    <CapIcon />
+                  </span>
+                  <select
+                    id="course"
+                    className="af-input af-select"
+                    value={form.course}
+                    onChange={(e) => update('course', e.target.value)}
+                    disabled={submitting || !form.department}
+                  >
+                    <option value="">
+                      {form.department ? 'Select your course and year…' : 'Choose a programme first'}
+                    </option>
+                    {coursesFor(form.department).map((course) => (
+                      <option key={course} value={course}>
+                        {course}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {errors.course && <span className="af-error">{errors.course}</span>}
+              </div>
+            )}
+
+            <AuthInput
+              id="id_number"
+              icon={IdIcon}
+              value={form.id_number}
+              onChange={(v) => update('id_number', v)}
+              placeholder={form.role === 'student' ? 'Student number' : 'Employee number'}
+              disabled={submitting}
+              maxLength={60}
+            />
 
             <AuthInput
               id="reg-password"

@@ -93,6 +93,9 @@ function BookingSettings() {
         advance_days: Number(form.advance_days),
         auto_approve_faculty: Boolean(form.auto_approve_faculty),
         auto_approve_student: Boolean(form.auto_approve_student),
+        student_max_hours_per_day: Number(form.student_max_hours_per_day) || 2,
+        student_max_computers: Number(form.student_max_computers) || 1,
+        faculty_priority: form.faculty_priority !== false,
         open_days: [...form.open_days].sort((a, b) => a - b),
         open_time: form.open_time,
         close_time: form.close_time,
@@ -173,7 +176,7 @@ function BookingSettings() {
 
       <div className="form-grid">
         <div className="field">
-          <label htmlFor="s-active">Maximum active bookings per user</label>
+          <label htmlFor="s-active">Maximum active bookings per student</label>
           <input
             id="s-active"
             type="number"
@@ -184,6 +187,48 @@ function BookingSettings() {
             onChange={(e) => setForm({ ...form, max_active_per_user: e.target.value })}
             disabled={busy}
           />
+        </div>
+
+        <div className="field">
+          <label htmlFor="s-student-hours">Student hours per day</label>
+          <input
+            id="s-student-hours"
+            type="number"
+            min="1"
+            max="12"
+            className="input"
+            value={form.student_max_hours_per_day ?? 2}
+            onChange={(e) => setForm({ ...form, student_max_hours_per_day: e.target.value })}
+            disabled={busy}
+          />
+        </div>
+
+        <div className="field">
+          <label htmlFor="s-student-pcs">Computers a student may hold</label>
+          <input
+            id="s-student-pcs"
+            type="number"
+            min="1"
+            max="10"
+            className="input"
+            value={form.student_max_computers ?? 1}
+            onChange={(e) => setForm({ ...form, student_max_computers: e.target.value })}
+            disabled={busy}
+          />
+        </div>
+
+        <div className="field">
+          <label htmlFor="s-priority">Faculty priority</label>
+          <select
+            id="s-priority"
+            className="select"
+            value={form.faculty_priority === false ? 'off' : 'on'}
+            onChange={(e) => setForm({ ...form, faculty_priority: e.target.value === 'on' })}
+            disabled={busy}
+          >
+            <option value="on">A class closes the laboratory to students</option>
+            <option value="off">Students may book alongside a class</option>
+          </select>
         </div>
 
         <div className="field">

@@ -6,9 +6,9 @@ import asyncHandler from '../utils/asyncHandler.js';
 import { signToken } from '../utils/jwt.js';
 import { hashPassword, comparePassword } from '../utils/password.js';
 import { recordAudit } from '../services/auditService.js';
-
-const PUBLIC_FIELDS =
-  'id, full_name, email, role, status, department, id_number, phone, last_login_at, created_at';
+import { generateQrCode, roleNeedsQrCode } from '../utils/qrCode.js';
+import { uploadAvatar, deleteAvatar } from '../services/avatarService.js';
+import { PUBLIC_FIELDS } from '../utils/userFields.js';
 
 /** POST /api/auth/login */
 export const login = asyncHandler(async (req, res) => {
@@ -66,7 +66,7 @@ export const login = asyncHandler(async (req, res) => {
 
 /** POST /api/auth/register — self-service signup for faculty and students. */
 export const register = asyncHandler(async (req, res) => {
-  const { full_name, email, password, role, department, id_number, phone } = req.body;
+  const { full_name, email, password, role, department, course, id_number, phone } = req.body;
 
   const { data: existing } = await supabase
     .from(TABLES.users)
@@ -87,8 +87,12 @@ export const register = asyncHandler(async (req, res) => {
       role,
       status: 'active',
       department: department || null,
+      // A year level describes a student's enrolment; faculty have none.
+      course: role === 'student' ? course || null : null,
       id_number: id_number || null,
       phone: phone || null,
+      // Students and faculty get a scannable laboratory card on sign-up.
+      qr_code: roleNeedsQrCode(role) ? generateQrCode() : null,
     })
     .select(PUBLIC_FIELDS)
     .single();
@@ -189,7 +193,9 @@ export const logout = asyncHandler(async (req, res) => {
 /** PATCH /api/auth/profile */
 export const updateProfile = asyncHandler(async (req, res) => {
   const patch = {};
-  for (const key of ['full_name', 'department', 'id_number', 'phone']) {
+  // Programme and course are not in this list on purpose — see
+  // updateProfileSchema. Changing them is an administrator action.
+  for (const key of ['full_name', 'id_number', 'phone']) {
     if (req.body[key] !== undefined) patch[key] = req.body[key] || null;
   }
 
@@ -205,6 +211,44 @@ export const updateProfile = asyncHandler(async (req, res) => {
   if (error) throw ApiError.internal();
 
   await recordAudit(req, { action: 'profile.update', entity: 'users', entityId: req.user.id });
+  res.json({ success: true, data });
+});
+
+/**
+ * POST /api/auth/avatar
+ * Replaces the caller's profile picture. Only ever acts on req.user.id, so
+ * nobody can set someone else's photo.
+ */
+export const setAvatar = asyncHandler(async (req, res) => {
+  const url = await uploadAvatar(req.user.id, req.body.image);
+
+  const { data, error } = await supabase
+    .from(TABLES.users)
+    .update({ avatar_url: url })
+    .eq('id', req.user.id)
+    .select(PUBLIC_FIELDS)
+    .single();
+
+  if (error) throw ApiError.internal();
+
+  await recordAudit(req, { action: 'profile.avatar_set', entity: 'users', entityId: req.user.id });
+  res.json({ success: true, data });
+});
+
+/** DELETE /api/auth/avatar */
+export const removeAvatar = asyncHandler(async (req, res) => {
+  await deleteAvatar(req.user.id);
+
+  const { data, error } = await supabase
+    .from(TABLES.users)
+    .update({ avatar_url: null })
+    .eq('id', req.user.id)
+    .select(PUBLIC_FIELDS)
+    .single();
+
+  if (error) throw ApiError.internal();
+
+  await recordAudit(req, { action: 'profile.avatar_removed', entity: 'users', entityId: req.user.id });
   res.json({ success: true, data });
 });
 

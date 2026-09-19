@@ -3,7 +3,8 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import NotificationBell from '../components/NotificationBell.jsx';
-import { initials, ROLE_LABEL } from '../utils/format.js';
+import Avatar from '../components/Avatar.jsx';
+import { ROLE_LABEL } from '../utils/format.js';
 
 /**
  * The one shell every role renders inside.
@@ -70,7 +71,7 @@ export default function AppShell({ navItems, roleLabel }) {
 
         <div className="sidebar-foot">
           <div className="sidebar-user">
-            <span className="avatar" aria-hidden="true">{initials(user?.full_name)}</span>
+            <Avatar user={user} size={40} />
             <span className="sidebar-user-meta">
               <span className="sidebar-user-name">{user?.full_name}</span>
               <span className="sidebar-user-role">{ROLE_LABEL[user?.role] ?? user?.role}</span>
@@ -106,9 +107,7 @@ export default function AppShell({ navItems, roleLabel }) {
             aria-label="Your profile"
             title="Profile"
           >
-            <span className="avatar" style={{ width: 34, height: 34, fontSize: '0.8rem' }}>
-              {initials(user?.full_name)}
-            </span>
+            <Avatar user={user} size={34} />
           </Link>
 
           <button type="button" className="btn btn-secondary" onClick={handleLogout}>

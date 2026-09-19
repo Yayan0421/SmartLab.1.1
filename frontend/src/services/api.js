@@ -1,6 +1,16 @@
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+/**
+ * Where the API lives.
+ *
+ * VITE_API_URL wins when set (use it for a deployed backend). Otherwise the
+ * host is taken from whatever address the page was opened on, so the app
+ * works unchanged from this computer (localhost) and from a phone on the
+ * same Wi-Fi (192.168.x.x) without anyone editing a config file.
+ */
+const BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  `${window.location.protocol}//${window.location.hostname}:5000/api`;
 const TOKEN_KEY = 'smartlab_token';
 const PORTAL_KEY = 'smartlab_portal';
 

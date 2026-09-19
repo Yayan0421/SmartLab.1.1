@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-do
 import { useAuth, HOME_BY_ROLE } from '../../context/AuthContext.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
 import AuthInput from '../../components/AuthInput.jsx';
-import { MailIcon, LockIcon, LoginIcon } from '../../components/icons.jsx';
+import { MailIcon, LockIcon, LoginIcon, UserPlusIcon } from '../../components/icons.jsx';
 
 // Administrators are not listed here — they sign in at /admin/login.
 const QUICK = [
@@ -110,9 +110,7 @@ export default function Login() {
           <h1 className="auth-heading">Login</h1>
 
           <p className="auth-lede">
-            Don&apos;t have an account? <Link to="/register">Create your account</Link>,
-            <br />
-            it takes less than a minute.
+            Sign in to reserve a workstation in the computer laboratory.
           </p>
 
           {banner && (
@@ -174,6 +172,21 @@ export default function Login() {
               {submitting ? 'Signing in…' : 'Login'}
             </button>
           </form>
+
+          {/* Registering is a first-class action here, not a footnote: most
+              people arriving at this screen for the first time need it. */}
+          <div className="auth-sep">
+            <span>New to SMARTLAB?</span>
+          </div>
+
+          <Link to="/register" className="auth-secondary">
+            <UserPlusIcon />
+            Create an account
+          </Link>
+
+          <p className="auth-hint">
+            Students and faculty — it takes less than a minute.
+          </p>
 
           {/* The reference has social sign-in here; SMARTLAB has no external
               providers, so the space goes to the demo accounts instead. */}

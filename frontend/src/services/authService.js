@@ -46,6 +46,16 @@ export const authService = {
     return res.data;
   },
 
+  async uploadAvatar(image) {
+    const res = await api.post('/auth/avatar', { image });
+    return res.data;
+  },
+
+  async removeAvatar() {
+    const res = await api.delete('/auth/avatar');
+    return res.data;
+  },
+
   changePassword(current_password, new_password) {
     return api.post('/auth/change-password', { current_password, new_password });
   },

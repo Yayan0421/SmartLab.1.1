@@ -3,6 +3,7 @@ import { verifyToken } from '../utils/jwt.js';
 import ApiError from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import env from '../config/env.js';
+import { PUBLIC_FIELDS } from '../utils/userFields.js';
 
 function readBearerToken(req) {
   const header = req.headers.authorization || '';
@@ -28,7 +29,7 @@ export const authenticate = asyncHandler(async (req, _res, next) => {
 
   const { data: user, error } = await supabase
     .from(TABLES.users)
-    .select('id, full_name, email, role, status, department, id_number, phone, last_login_at, created_at')
+    .select(PUBLIC_FIELDS)
     .eq('id', payload.sub)
     .maybeSingle();
 

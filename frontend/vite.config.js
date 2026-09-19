@@ -6,6 +6,9 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    // Listen on every network interface so phones and other machines on the
+    // same Wi-Fi can reach the dev server, not just this computer.
+    host: true,
   },
   build: {
     outDir: 'dist',

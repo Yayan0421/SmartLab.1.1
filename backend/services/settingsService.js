@@ -12,6 +12,13 @@ const DEFAULTS = {
     open_days: [1, 2, 3, 4],
     open_time: '07:00',
     close_time: '17:00',
+    // Student allowance: how long one student may hold the laboratory in a
+    // single day, and how many machines at once.
+    student_max_hours_per_day: 2,
+    student_max_computers: 1,
+    // A faculty reservation takes the room: while it runs, students cannot
+    // book any machine in that laboratory.
+    faculty_priority: true,
   },
   energy: { rate_per_kwh: 11.5, currency: 'PHP' },
   general: { site_name: 'SMARTLAB', offline_after_seconds: 120 },

@@ -8,6 +8,7 @@ export const createUserSchema = z.object({
   role: z.enum(['admin', 'faculty', 'student'], { errorMap: () => ({ message: 'Choose a valid role.' }) }),
   status: z.enum(['active', 'inactive', 'suspended']).default('active'),
   department: z.string().trim().max(120).optional().or(z.literal('')),
+  course: z.string().trim().max(120).optional().or(z.literal('')),
   id_number: z.string().trim().max(60).optional().or(z.literal('')),
   phone: z.string().trim().max(40).optional().or(z.literal('')),
 });
@@ -19,6 +20,7 @@ export const updateUserSchema = z
     role: z.enum(['admin', 'faculty', 'student']).optional(),
     status: z.enum(['active', 'inactive', 'suspended']).optional(),
     department: z.string().trim().max(120).optional().or(z.literal('')),
+    course: z.string().trim().max(120).optional().or(z.literal('')),
     id_number: z.string().trim().max(60).optional().or(z.literal('')),
     phone: z.string().trim().max(40).optional().or(z.literal('')),
   })

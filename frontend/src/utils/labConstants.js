@@ -35,6 +35,35 @@ export const BOOKING_PURPOSES = [
   'Make-up laboratory class',
 ];
 
+/**
+ * Engineering programmes served by the laboratory, and the degree and year
+ * level under each. The course list depends on the programme, so the two
+ * dropdowns stay consistent: you cannot end up a Civil Engineering student
+ * enrolled in BSCpE.
+ */
+export const PROGRAMS = [
+  'Computer Engineering',
+  'Civil Engineering',
+  'Electrical Engineering',
+];
+
+const YEARS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'];
+
+const DEGREE_OF = {
+  'Computer Engineering': 'BSCpE',
+  'Civil Engineering': 'BSCE',
+  'Electrical Engineering': 'BSEE',
+};
+
+export const COURSES_BY_PROGRAM = Object.fromEntries(
+  PROGRAMS.map((program) => [program, YEARS.map((year) => `${DEGREE_OF[program]} - ${year}`)])
+);
+
+/** The courses available for a programme, or an empty list if none is chosen. */
+export function coursesFor(program) {
+  return COURSES_BY_PROGRAM[program] ?? [];
+}
+
 export const DAY_NAMES = [
   'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday',
 ];
@@ -45,6 +74,9 @@ export const DEFAULT_POLICY = {
   open_time: '07:00',
   close_time: '17:00',
   advance_days: 14,
+  student_max_hours_per_day: 2,
+  student_max_computers: 1,
+  faculty_priority: true,
 };
 
 /**

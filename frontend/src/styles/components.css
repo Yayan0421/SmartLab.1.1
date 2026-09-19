@@ -771,3 +771,254 @@
    bookable, drawn slightly muted so the difference is visible. */
 .cell.free.idle { border-color: var(--taupe); }
 .cell.free.idle:hover:not(:disabled) { background: var(--surface-sunken); }
+
+/* =====================================================================
+   Laboratory card (QR)
+   ===================================================================== */
+
+.qr-card {
+  display: flex;
+  align-items: center;
+  gap: 1.15rem;
+  flex-wrap: wrap;
+}
+
+.qr-card.is-compact { gap: 0.8rem; }
+
+.qr-canvas-wrap {
+  padding: 0.6rem;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  line-height: 0;
+  flex-shrink: 0;
+}
+
+.qr-details { min-width: 0; }
+
+.qr-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* The printed code, shown so it can be typed if a scanner is unavailable. */
+.qr-code-value {
+  display: inline-block;
+  margin-top: 0.55rem;
+  padding: 0.3rem 0.65rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  letter-spacing: 0.06em;
+  color: var(--burgundy-700);
+}
+
+.qr-empty {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.9rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.qr-empty span { font-size: 1.4rem; }
+
+/* --- a slot a class has taken: closed to students --------------------- */
+.cell.class {
+  border-color: var(--burgundy-300);
+  background: repeating-linear-gradient(
+    45deg,
+    var(--burgundy-100),
+    var(--burgundy-100) 3px,
+    #fff 3px,
+    #fff 6px
+  );
+  cursor: not-allowed;
+}
+
+.legend .dot.class {
+  border-color: var(--burgundy-300);
+  background: var(--burgundy-100);
+}
+
+.sched-closed {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: var(--radius-full);
+  background: var(--burgundy-100);
+  color: var(--burgundy-700);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* --- a student's remaining hours for the chosen day ------------------- */
+.allowance {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--success);
+  border-radius: var(--radius);
+  background: var(--success-bg);
+  color: #1f5c3c;
+}
+
+.allowance strong { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+
+.allowance.is-spent {
+  border-left-color: var(--danger);
+  background: var(--danger-bg);
+  color: #8c1c16;
+}
+
+/* --- "number of computers" stepper (faculty booking) ------------------ */
+.count-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.count-btn {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--burgundy);
+  cursor: pointer;
+}
+
+.count-btn:hover:not(:disabled) { background: var(--burgundy-050); border-color: var(--burgundy); }
+.count-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.count-input {
+  width: 76px;
+  text-align: center;
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.count-avail {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* --- profile picture -------------------------------------------------- */
+.avatar-img {
+  object-fit: cover;
+  display: block;
+  background: var(--surface-sunken);
+}
+
+
+
+
+/* --- profile picture: the avatar is the picker ------------------------ */
+.avatar-pick {
+  position: relative;
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+.avatar-pick-btn {
+  position: relative;
+  display: block;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.avatar-pick-btn:disabled { cursor: wait; }
+
+/* A soft burgundy wash on hover, so it reads as clickable. */
+.avatar-pick-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(155, 29, 48, 0.35);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.avatar-pick-btn:hover::after,
+.avatar-pick-btn:focus-visible::after { opacity: 1; }
+
+.avatar-plus {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 3px solid var(--surface);
+  border-radius: 50%;
+  background: var(--burgundy);
+  color: var(--ivory-light);
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.12s, background 0.15s;
+}
+
+.avatar-pick-btn:hover .avatar-plus { transform: scale(1.08); background: var(--burgundy-700); }
+
+/* Only offered once there is something to clear. */
+.avatar-clear {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.avatar-pick:hover .avatar-clear,
+.avatar-clear:focus-visible { opacity: 1; }
+
+.avatar-busy {
+  position: absolute;
+  inset: -5px;
+  border: 3px solid transparent;
+  border-top-color: var(--burgundy);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+/* Touch devices have no hover, so the remove button stays visible. */
+@media (hover: none) {
+  .avatar-clear { opacity: 1; }
+}

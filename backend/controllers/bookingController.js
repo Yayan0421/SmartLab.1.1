@@ -410,6 +410,9 @@ export const getPolicy = asyncHandler(async (_req, res) => {
       advance_days: policy.advance_days,
       max_active_per_user: policy.max_active_per_user,
       max_hours_per_booking: policy.max_hours_per_booking,
+      student_max_hours_per_day: policy.student_max_hours_per_day ?? 2,
+      student_max_computers: policy.student_max_computers ?? 1,
+      faculty_priority: policy.faculty_priority !== false,
     },
   });
 });
@@ -435,7 +438,11 @@ export const getSchedule = asyncHandler(async (req, res) => {
         .order('computer_number', { ascending: true }),
       supabase
         .from(TABLES.bookings)
-        .select('id, computer_id, user_id, start_time, end_time, status, subject, purpose')
+        .select(`
+          id, computer_id, user_id, start_time, end_time, status, subject, purpose,
+          user:users!bookings_user_id_fkey ( role, full_name ),
+          computer:computers ( laboratory_id )
+        `)
         .eq('booking_date', date)
         .in('status', ACTIVE_STATES),
     ]);
@@ -450,8 +457,24 @@ export const getSchedule = asyncHandler(async (req, res) => {
         ...c,
         laboratory: Array.isArray(c.laboratory) ? c.laboratory[0] : c.laboratory,
       })),
-      // `mine` lets the grid highlight the caller's own reservations.
-      bookings: (bookings ?? []).map((b) => ({ ...b, mine: b.user_id === req.user.id })),
+      // `mine` highlights the caller's own reservations; `by_faculty` lets
+      // the grid close a whole row when a class has the room.
+      bookings: (bookings ?? []).map((b) => {
+        const holder = Array.isArray(b.user) ? b.user[0] : b.user;
+        const machine = Array.isArray(b.computer) ? b.computer[0] : b.computer;
+        return {
+          id: b.id,
+          computer_id: b.computer_id,
+          start_time: b.start_time,
+          end_time: b.end_time,
+          status: b.status,
+          subject: b.subject,
+          mine: b.user_id === req.user.id,
+          by_faculty: holder?.role === 'faculty',
+          holder_name: holder?.full_name ?? null,
+          laboratory_id: machine?.laboratory_id ?? null,
+        };
+      }),
     },
   });
 });
@@ -469,8 +492,22 @@ export const createBulkBooking = asyncHandler(async (req, res) => {
 
   const policy = await getSetting('booking');
 
-  // The per-user cap counts the whole request, not each machine separately.
-  if (req.user.role !== 'admin') {
+  // Students work on one machine; reserving a set of them is a faculty
+  // action, for running a class.
+  if (req.user.role === 'student') {
+    const maxComputers = policy.student_max_computers ?? 1;
+    if (unique.length > maxComputers) {
+      throw ApiError.conflict(
+        maxComputers === 1
+          ? 'Students may book one computer at a time.'
+          : `Students may book up to ${maxComputers} computers at a time.`
+      );
+    }
+  }
+
+  // The cap counts the whole request rather than each machine, and applies
+  // to students only — faculty reserve whole rooms for classes.
+  if (req.user.role === 'student') {
     const { count } = await supabase
       .from(TABLES.bookings)
       .select('id', { count: 'exact', head: true })

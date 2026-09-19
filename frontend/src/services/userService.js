@@ -9,6 +9,8 @@ export const userService = {
   resetPassword: (id, new_password) =>
     api.post(`/users/${id}/reset-password`, new_password ? { new_password } : {}),
   deactivate: (id) => api.delete(`/users/${id}`),
+  reissueQr: (id) => api.post(`/users/${id}/reissue-qr`),
+  lookupByQr: (code) => api.get(`/users/by-qr/${encodeURIComponent(code)}`),
 };
 
 export default userService;

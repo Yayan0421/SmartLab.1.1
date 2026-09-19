@@ -116,6 +116,8 @@ export default function BookingWorkspace() {
   const computers = schedule?.computers ?? [];
   const bookings = schedule?.bookings ?? [];
 
+  const isStudent = user?.role === 'student';
+
   /** Is this machine taken during the given slot? Returns the booking. */
   const bookingFor = useCallback(
     (computerId, theSlot) => {
@@ -129,6 +131,42 @@ export default function BookingWorkspace() {
   );
 
   /**
+   * A faculty reservation takes the room, so for a student the entire slot
+   * is closed — not just the machines the class happens to occupy. Shown
+   * here as well as enforced on the server, so nobody picks a seat that was
+   * never going to be accepted.
+   */
+  const classHolding = useCallback(
+    (theSlot) => {
+      const start = toDbTime(theSlot.start);
+      const end = toDbTime(theSlot.end);
+      return bookings.find(
+        (b) => b.by_faculty && start < b.end_time && end > b.start_time
+      );
+    },
+    [bookings]
+  );
+
+  const slotClosedForMe = useCallback(
+    (theSlot) => (isStudent && policy.faculty_priority ? Boolean(classHolding(theSlot)) : false),
+    [isStudent, policy.faculty_priority, classHolding]
+  );
+
+  /** Hours this student has already committed on the chosen day. */
+  const hoursUsed = bookings
+    .filter((b) => b.mine)
+    .reduce((total, b) => {
+      const toMin = (t) => {
+        const [h, m] = t.split(':').map(Number);
+        return h * 60 + m;
+      };
+      return total + (toMin(b.end_time) - toMin(b.start_time)) / 60;
+    }, 0);
+
+  const hoursLeft = Math.max(0, (policy.student_max_hours_per_day ?? 2) - hoursUsed);
+  const maxPick = isStudent ? policy.student_max_computers ?? 1 : 30;
+
+  /**
    * Mirrors the server rule exactly (see backend validateBookingRequest):
    * only a machine withdrawn from booking or under maintenance is blocked.
    *
@@ -140,8 +178,9 @@ export default function BookingWorkspace() {
     (computer, theSlot) =>
       computer.is_bookable &&
       computer.status !== 'MAINTENANCE' &&
-      !bookingFor(computer.id, theSlot),
-    [bookingFor]
+      !bookingFor(computer.id, theSlot) &&
+      !slotClosedForMe(theSlot),
+    [bookingFor, slotClosedForMe]
   );
 
   const slotIsPast = useCallback(
@@ -156,13 +195,34 @@ export default function BookingWorkspace() {
 
   const availableNow = computers.filter((c) => isFree(c, slot) && !slotIsPast(slot));
 
+  /**
+   * Reserves the first N free machines for the chosen slot.
+   *
+   * Faculty booking a class think in numbers ("I need 25 seats"), not in
+   * individual machines, so the count drives the selection. Clicking cells
+   * still works and simply adjusts the same list.
+   */
+  function pickByCount(wanted) {
+    const free = computers.filter((c) => isFree(c, slot));
+    const n = Math.max(0, Math.min(Number(wanted) || 0, free.length));
+    setSelected(free.slice(0, n).map((c) => c.id));
+
+    if (Number(wanted) > free.length) {
+      toast.info(
+        `Only ${free.length} computer${free.length === 1 ? ' is' : 's are'} free in that slot.`
+      );
+    }
+  }
+
   function toggle(computer) {
     if (!isFree(computer, slot) || slotIsPast(slot)) return;
-    setSelected((current) =>
-      current.includes(computer.id)
-        ? current.filter((id) => id !== computer.id)
-        : [...current, computer.id]
-    );
+    setSelected((current) => {
+      if (current.includes(computer.id)) return current.filter((id) => id !== computer.id);
+      // Students hold one machine, so picking another replaces the first
+      // rather than refusing the click.
+      if (current.length >= maxPick) return maxPick === 1 ? [computer.id] : current;
+      return [...current, computer.id];
+    });
   }
 
   async function submit(event) {
@@ -222,6 +282,14 @@ export default function BookingWorkspace() {
           <p className="small muted" style={{ marginTop: '0.2rem' }}>
             Laboratory hours: {describeDays(policy.open_days)}, {policy.open_time} to{' '}
             {policy.close_time}.
+            {isStudent && (
+              <>
+                {' '}Students may book {policy.student_max_hours_per_day} hours a day on{' '}
+                {policy.student_max_computers === 1
+                  ? 'one computer'
+                  : `${policy.student_max_computers} computers`}.
+              </>
+            )}
           </p>
         </div>
       </div>
@@ -309,8 +377,100 @@ export default function BookingWorkspace() {
               </select>
             </div>
 
+            {/* Faculty reserve a number of seats for a class; students hold
+                a single machine, so the field would only get in their way. */}
+            {!isStudent && (
+              <div className="field">
+                <label htmlFor="bk-count">Number of computers</label>
+                <div className="count-row">
+                  <button
+                    type="button"
+                    className="count-btn"
+                    onClick={() => pickByCount(selected.length - 1)}
+                    disabled={submitting || selected.length === 0}
+                    aria-label="One fewer computer"
+                  >
+                    −
+                  </button>
+
+                  <input
+                    id="bk-count"
+                    type="number"
+                    className="input count-input"
+                    min="0"
+                    max={availableNow.length}
+                    value={selected.length}
+                    onChange={(e) => pickByCount(e.target.value)}
+                    disabled={submitting || availableNow.length === 0}
+                  />
+
+                  <button
+                    type="button"
+                    className="count-btn"
+                    onClick={() => pickByCount(selected.length + 1)}
+                    disabled={submitting || selected.length >= availableNow.length}
+                    aria-label="One more computer"
+                  >
+                    +
+                  </button>
+
+                  <span className="count-avail">
+                    of {availableNow.length} free
+                  </span>
+                </div>
+
+                <div className="row wrap" style={{ gap: '0.3rem', marginTop: '0.4rem' }}>
+                  {[5, 10, 20].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => pickByCount(n)}
+                      disabled={submitting || availableNow.length === 0}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => pickByCount(availableNow.length)}
+                    disabled={submitting || availableNow.length === 0}
+                  >
+                    All {availableNow.length}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => setSelected([])}
+                    disabled={submitting || selected.length === 0}
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {isStudent && (
+              <div className={`allowance ${hoursLeft === 0 ? 'is-spent' : ''}`}>
+                <strong>{hoursLeft}h</strong>
+                <span className="small">
+                  {hoursLeft === 0
+                    ? 'You have used your hours for this day'
+                    : `left of your ${policy.student_max_hours_per_day}h on this day`}
+                </span>
+              </div>
+            )}
+
+            {slotClosedForMe(slot) && (
+              <div className="alert alert-warning small">
+                A class has the laboratory from {classHolding(slot)?.start_time.slice(0, 5)} to{' '}
+                {classHolding(slot)?.end_time.slice(0, 5)}. Choose another time.
+              </div>
+            )}
+
             <div className="field">
-              <label>Selected computers</label>
+              <label>{isStudent ? 'Selected computer' : 'Selected computers'}</label>
               <div className="book-count">
                 <strong>{selected.length}</strong>
                 <span className="muted small">
@@ -384,6 +544,11 @@ export default function BookingWorkspace() {
                     <tr key={s.start} className={i === slotIndex ? 'is-current' : ''}>
                       <th className="sched-time">
                         {s.start} - {s.end}
+                        {slotClosedForMe(s) && (
+                          <span className="sched-closed" title="A class has the laboratory">
+                            class
+                          </span>
+                        )}
                       </th>
 
                       {computers.map((computer) => {
@@ -391,12 +556,18 @@ export default function BookingWorkspace() {
                         const free = isFree(computer, s) && !past;
                         const isSelected = i === slotIndex && selected.includes(computer.id);
 
+                        const classHold = classHolding(s);
+                        const closed = slotClosedForMe(s);
+
                         let cls = 'free';
                         let title = `${computer.name} available`;
 
                         if (past) {
                           cls = 'past';
                           title = 'This slot has passed';
+                        } else if (closed && !booked) {
+                          cls = 'class';
+                          title = `Reserved for a class${classHold?.subject ? ` — ${classHold.subject}` : ''}`;
                         } else if (booked) {
                           cls = booked.mine ? 'mine' : 'taken';
                           title = booked.mine
@@ -440,6 +611,9 @@ export default function BookingWorkspace() {
             <span className="legend-item"><i className="dot taken" /> Booked</span>
             <span className="legend-item"><i className="dot mine" /> Yours</span>
             <span className="legend-item"><i className="dot blocked" /> Unavailable</span>
+            {isStudent && policy.faculty_priority && (
+              <span className="legend-item"><i className="dot class" /> Class reserved</span>
+            )}
             <span className="legend-item"><i className="dot is-selected-key" /> Selected</span>
           </div>
         </section>

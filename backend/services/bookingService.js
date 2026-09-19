@@ -160,9 +160,71 @@ export async function validateBookingRequest({
     }
   }
 
-  // 10. Per-user active booking limit. Admins are exempt so they can make
-  // bookings on behalf of the laboratory.
-  if (user.role !== 'admin' && !skipUserLimit) {
+  // ------------------------------------------------------------------
+  // Faculty priority: a class reservation takes the whole laboratory.
+  // Checked before the student's own allowance, because "the room is
+  // booked for a class" is the more useful message of the two.
+  // ------------------------------------------------------------------
+  if (user.role === 'student' && policy.faculty_priority !== false) {
+    const { data: overlapping } = await supabase
+      .from(TABLES.bookings)
+      .select('id, start_time, end_time, user:users!bookings_user_id_fkey ( role, full_name ), computer:computers ( laboratory_id )')
+      .eq('booking_date', booking_date)
+      .in('status', ACTIVE_STATES)
+      .lt('start_time', end_time)
+      .gt('end_time', start_time);
+
+    const facultyHold = (overlapping ?? []).find((row) => {
+      const holder = Array.isArray(row.user) ? row.user[0] : row.user;
+      const machine = Array.isArray(row.computer) ? row.computer[0] : row.computer;
+      return holder?.role === 'faculty' && machine?.laboratory_id === computer.laboratory_id;
+    });
+
+    if (facultyHold) {
+      throw ApiError.conflict(
+        `The laboratory is reserved for a class between ${facultyHold.start_time.slice(0, 5)} ` +
+          `and ${facultyHold.end_time.slice(0, 5)}. Please choose another time.`
+      );
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // Student allowance: a limited number of hours per day, on one machine
+  // at a time. Faculty and admins are not capped this way.
+  // ------------------------------------------------------------------
+  if (user.role === 'student') {
+    const maxHours = policy.student_max_hours_per_day ?? 2;
+
+    let dayQuery = supabase
+      .from(TABLES.bookings)
+      .select('id, start_time, end_time')
+      .eq('user_id', user.id)
+      .eq('booking_date', booking_date)
+      .in('status', ACTIVE_STATES);
+
+    if (excludeBookingId) dayQuery = dayQuery.neq('id', excludeBookingId);
+
+    const { data: sameDay } = await dayQuery;
+    const alreadyBooked = (sameDay ?? []).reduce(
+      (total, row) => total + hoursBetween(row.start_time, row.end_time),
+      0
+    );
+
+    if (alreadyBooked + duration > maxHours) {
+      const left = Math.max(0, maxHours - alreadyBooked);
+      throw ApiError.conflict(
+        left === 0
+          ? `You have already used your ${maxHours} hours for that day.`
+          : `Students may book ${maxHours} hours a day. You have ${left} hour${left === 1 ? '' : 's'} left on that day.`
+      );
+    }
+  }
+
+  // 10. Active booking cap. This one is a student rule: a faculty class
+  // reservation is one session but thirty rows, so counting rows would stop
+  // faculty booking the room at all. Faculty and admins are bounded instead
+  // by opening hours and by conflicts with existing reservations.
+  if (user.role === 'student' && !skipUserLimit) {
     let activeQuery = supabase
       .from(TABLES.bookings)
       .select('id', { count: 'exact', head: true })

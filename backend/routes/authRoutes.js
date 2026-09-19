@@ -9,6 +9,7 @@ import {
   registerAdminSchema,
   changePasswordSchema,
   updateProfileSchema,
+  avatarSchema,
 } from '../validators/authValidators.js';
 
 const router = Router();
@@ -50,6 +51,8 @@ router.post(
 router.get('/me', authenticate, authController.me);
 router.post('/logout', authenticate, authController.logout);
 router.patch('/profile', authenticate, validate(updateProfileSchema), authController.updateProfile);
+router.post('/avatar', authenticate, validate(avatarSchema), authController.setAvatar);
+router.delete('/avatar', authenticate, authController.removeAvatar);
 router.post(
   '/change-password',
   authenticate,

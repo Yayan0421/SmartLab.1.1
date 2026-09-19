@@ -11,7 +11,10 @@ import ErrorState from '../../components/ErrorState.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Pagination from '../../components/Pagination.jsx';
 import Modal, { ConfirmDialog } from '../../components/Modal.jsx';
-import { formatDateTime, initials, ROLE_LABEL, timeAgo } from '../../utils/format.js';
+import QrCard from '../../components/QrCard.jsx';
+import Avatar from '../../components/Avatar.jsx';
+import { formatDateTime, ROLE_LABEL, timeAgo } from '../../utils/format.js';
+import { PROGRAMS, coursesFor } from '../../utils/labConstants.js';
 
 const EMPTY_USER = {
   full_name: '',
@@ -20,6 +23,7 @@ const EMPTY_USER = {
   role: 'student',
   status: 'active',
   department: '',
+  course: '',
   id_number: '',
   phone: '',
 };
@@ -36,6 +40,7 @@ export default function AdminUsers() {
   const [editing, setEditing] = useState(null); // user object, or EMPTY_USER for create
   const [deactivating, setDeactivating] = useState(null);
   const [resetting, setResetting] = useState(null);
+  const [cardUser, setCardUser] = useState(null);
   const [busy, setBusy] = useState(false);
 
   const debouncedSearch = useDebounce(search);
@@ -202,9 +207,7 @@ export default function AdminUsers() {
                     <tr key={item.id}>
                       <td>
                         <div className="row" style={{ gap: '0.6rem' }}>
-                          <span className="avatar" style={{ width: 32, height: 32, fontSize: '0.72rem' }}>
-                            {initials(item.full_name)}
-                          </span>
+                          <Avatar user={item} size={32} />
                           <span style={{ minWidth: 0 }}>
                             <strong className="truncate">{item.full_name}</strong>
                             {item.id === currentUser.id && (
@@ -241,6 +244,15 @@ export default function AdminUsers() {
                         >
                           Reset
                         </button>
+                        {item.role !== 'admin' && (
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => setCardUser(item)}
+                          >
+                            Card
+                          </button>
+                        )}
                         {item.status === 'active' ? (
                           <button
                             type="button"
@@ -287,6 +299,50 @@ export default function AdminUsers() {
           refreshAll();
         }}
       />
+
+      {/* The person's laboratory card, for printing or reissuing. */}
+      <Modal
+        open={Boolean(cardUser)}
+        onClose={() => setCardUser(null)}
+        title="Laboratory card"
+        footer={
+          <>
+            <button type="button" className="btn btn-secondary" onClick={() => setCardUser(null)}>
+              Close
+            </button>
+            <button
+              type="button"
+              className="btn btn-danger"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  const res = await userService.reissueQr(cardUser.id);
+                  setCardUser(res.data);
+                  toast.success('New card issued. The previous one no longer works.');
+                  refreshAll();
+                } catch (err) {
+                  toast.error(err.message);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              {busy ? 'Issuing…' : 'Issue new card'}
+            </button>
+          </>
+        }
+      >
+        {cardUser && (
+          <>
+            <QrCard user={cardUser} />
+            <p className="small muted" style={{ marginTop: '1rem', marginBottom: 0 }}>
+              Issue a new card only if this one was lost or copied — the old code stops working
+              immediately and any printed copy becomes useless.
+            </p>
+          </>
+        )}
+      </Modal>
 
       <ConfirmDialog
         open={Boolean(deactivating)}
@@ -364,7 +420,8 @@ function UserFormModal({ user, currentUser, onClose, onSaved }) {
           email: form.email.trim(),
           role: form.role,
           status: form.status,
-          department: form.department?.trim() ?? '',
+          department: form.department ?? '',
+          course: form.course ?? '',
           id_number: form.id_number?.trim() ?? '',
           phone: form.phone?.trim() ?? '',
         };
@@ -377,7 +434,8 @@ function UserFormModal({ user, currentUser, onClose, onSaved }) {
           password: form.password,
           role: form.role,
           status: form.status,
-          department: form.department?.trim() ?? '',
+          department: form.department ?? '',
+          course: form.course ?? '',
           id_number: form.id_number?.trim() ?? '',
           phone: form.phone?.trim() ?? '',
         });
@@ -465,7 +523,10 @@ function UserFormModal({ user, currentUser, onClose, onSaved }) {
               id="u-role"
               className="select"
               value={form.role}
-              onChange={(e) => update('role', e.target.value)}
+              onChange={(e) => {
+                update('role', e.target.value);
+                if (e.target.value !== 'student') update('course', '');
+              }}
               disabled={busy || isSelf}
             >
               <option value="student">Student</option>
@@ -493,15 +554,50 @@ function UserFormModal({ user, currentUser, onClose, onSaved }) {
 
         <div className="form-grid">
           <div className="field">
-            <label htmlFor="u-dept">Department</label>
-            <input
+            <label htmlFor="u-dept">Programme</label>
+            <select
               id="u-dept"
-              className="input"
+              className="select"
               value={form.department ?? ''}
-              onChange={(e) => update('department', e.target.value)}
+              onChange={(e) => {
+                update('department', e.target.value);
+                update('course', '');
+              }}
               disabled={busy}
-            />
+            >
+              <option value="">Not set</option>
+              {PROGRAMS.map((program) => (
+                <option key={program} value={program}>
+                  {program}
+                </option>
+              ))}
+              {form.department && !PROGRAMS.includes(form.department) && (
+                <option value={form.department}>{form.department}</option>
+              )}
+            </select>
           </div>
+
+          {/* Administrators can correct a programme or year level; the
+              people themselves cannot. Faculty have no year level. */}
+          {form.role === 'student' && (
+            <div className="field">
+              <label htmlFor="u-course">Course and year</label>
+              <select
+                id="u-course"
+                className="select"
+                value={form.course ?? ''}
+                onChange={(e) => update('course', e.target.value)}
+                disabled={busy || !form.department}
+              >
+                <option value="">{form.department ? 'Not set' : 'Choose a programme first'}</option>
+                {coursesFor(form.department).map((course) => (
+                  <option key={course} value={course}>
+                    {course}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="field">
             <label htmlFor="u-idnum">ID number</label>

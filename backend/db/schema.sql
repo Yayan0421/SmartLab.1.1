@@ -55,6 +55,12 @@ create table if not exists users (
   department    text,
   id_number     text,
   phone         text,
+  -- `department` holds the programme (e.g. Computer Engineering) and
+  -- `course` the degree and year level (e.g. BSCpE - 2nd Year).
+  course        text,
+  -- Public URL of the profile picture; the file lives in Supabase Storage.
+  avatar_url    text,
+  qr_code       text,
   last_login_at timestamptz,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
@@ -67,6 +73,9 @@ create index if not exists users_role_idx       on users (role);
 create index if not exists users_status_idx     on users (status);
 create index if not exists users_created_at_idx on users (created_at desc);
 create index if not exists users_full_name_idx  on users (lower(full_name));
+-- Scanned at the laboratory to identify a student or faculty member.
+create unique index if not exists users_qr_code_key on users (qr_code);
+create index if not exists users_course_idx on users (course);
 
 -- ---------------------------------------------------------------------
 -- laboratories

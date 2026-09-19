@@ -43,9 +43,20 @@ export const registerSchema = z.object({
   password: passwordField,
   // Self-registration can never create an admin. Admins are made by admins.
   role: z.enum(['faculty', 'student']).default('student'),
+  // Programme, e.g. Computer Engineering.
   department: z.string().trim().max(120).optional().or(z.literal('')),
+  // Degree and year level, e.g. BSCpE - 2nd Year.
+  course: z.string().trim().max(120).optional().or(z.literal('')),
   id_number: z.string().trim().max(60).optional().or(z.literal('')),
   phone: z.string().trim().max(40).optional().or(z.literal('')),
+});
+
+/** A profile picture arrives as a data URL, already resized by the browser. */
+export const avatarSchema = z.object({
+  image: z
+    .string({ required_error: 'Choose a picture to upload.' })
+    .min(32, 'That image appears to be empty.')
+    .max(2_200_000, 'That image is too large. Use one under 1.5MB.'),
 });
 
 export const changePasswordSchema = z.object({
@@ -53,9 +64,15 @@ export const changePasswordSchema = z.object({
   new_password: passwordField,
 });
 
+/**
+ * Editing your own profile.
+ *
+ * Programme and course are deliberately absent: they are set once at
+ * sign-up and only an administrator can correct them afterwards, so a
+ * student cannot move themselves into another programme mid-term.
+ */
 export const updateProfileSchema = z.object({
   full_name: z.string().trim().min(2, 'Enter your full name.').max(120).optional(),
-  department: z.string().trim().max(120).optional().or(z.literal('')),
   id_number: z.string().trim().max(60).optional().or(z.literal('')),
   phone: z.string().trim().max(40).optional().or(z.literal('')),
 });

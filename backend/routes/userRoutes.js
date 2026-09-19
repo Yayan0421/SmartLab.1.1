@@ -17,11 +17,13 @@ const router = Router();
 router.use(authenticate, requireAdmin);
 
 router.get('/stats', userController.userStats);
+router.get('/by-qr/:code', userController.lookupByQrCode);
 router.get('/', validate(listUsersQuerySchema, 'query'), userController.listUsers);
 router.get('/:id', userController.getUser);
 router.post('/', validate(createUserSchema), userController.createUser);
 router.patch('/:id', validate(updateUserSchema), userController.updateUser);
 router.post('/:id/reset-password', validate(resetPasswordSchema), userController.resetPassword);
+router.post('/:id/reissue-qr', userController.reissueQrCode);
 router.delete('/:id', userController.deleteUser);
 
 export default router;

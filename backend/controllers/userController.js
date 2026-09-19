@@ -4,7 +4,8 @@ import asyncHandler from '../utils/asyncHandler.js';
 import { getPagination, paginated } from '../utils/pagination.js';
 import { hashPassword, generateTempPassword } from '../utils/password.js';
 import { recordAudit } from '../services/auditService.js';
-import { PUBLIC_FIELDS } from './authController.js';
+import { generateQrCode, roleNeedsQrCode } from '../utils/qrCode.js';
+import { PUBLIC_FIELDS } from '../utils/userFields.js';
 
 /** GET /api/users — admin only, paginated and filterable. */
 export const listUsers = asyncHandler(async (req, res) => {
@@ -73,6 +74,80 @@ export const getUser = asyncHandler(async (req, res) => {
   res.json({ success: true, data: { ...data, booking_count: bookingCount ?? 0 } });
 });
 
+/**
+ * GET /api/users/by-qr/:code
+ *
+ * Resolves a scanned laboratory card to the person holding it, together
+ * with whatever they have booked today — what a scanner at the door needs.
+ * Admin only: a scan identifies a real student, so it is not public.
+ */
+export const lookupByQrCode = asyncHandler(async (req, res) => {
+  const code = String(req.params.code || '').trim().toUpperCase();
+  if (!/^SL-[0-9A-F]{12}$/.test(code)) {
+    throw ApiError.badRequest('That is not a valid SMARTLAB card code.');
+  }
+
+  const { data: user, error } = await supabase
+    .from(TABLES.users)
+    .select(PUBLIC_FIELDS)
+    .eq('qr_code', code)
+    .maybeSingle();
+
+  if (error) throw ApiError.internal();
+  if (!user) throw ApiError.notFound('No account matches that card.');
+
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: bookings } = await supabase
+    .from(TABLES.bookings)
+    .select('id, booking_date, start_time, end_time, status, subject, computer:computers ( name )')
+    .eq('user_id', user.id)
+    .eq('booking_date', today)
+    .in('status', ['PENDING', 'APPROVED'])
+    .order('start_time');
+
+  await recordAudit(req, { action: 'user.qr_scan', entity: 'users', entityId: user.id });
+
+  res.json({
+    success: true,
+    data: {
+      user,
+      today_bookings: (bookings ?? []).map((b) => ({
+        ...b,
+        computer: Array.isArray(b.computer) ? b.computer[0] : b.computer,
+      })),
+    },
+  });
+});
+
+/**
+ * POST /api/users/:id/reissue-qr
+ * Issues a fresh card code, which invalidates any previously printed one.
+ */
+export const reissueQrCode = asyncHandler(async (req, res) => {
+  const { data: target } = await supabase
+    .from(TABLES.users)
+    .select('id, role')
+    .eq('id', req.params.id)
+    .maybeSingle();
+
+  if (!target) throw ApiError.notFound('That user could not be found.');
+  if (!roleNeedsQrCode(target.role)) {
+    throw ApiError.badRequest('Only students and faculty carry a laboratory card.');
+  }
+
+  const { data, error } = await supabase
+    .from(TABLES.users)
+    .update({ qr_code: generateQrCode() })
+    .eq('id', target.id)
+    .select(PUBLIC_FIELDS)
+    .single();
+
+  if (error) throw ApiError.internal();
+
+  await recordAudit(req, { action: 'user.qr_reissue', entity: 'users', entityId: target.id });
+  res.json({ success: true, data });
+});
+
 /** POST /api/users */
 export const createUser = asyncHandler(async (req, res) => {
   const { password, ...rest } = req.body;
@@ -90,9 +165,11 @@ export const createUser = asyncHandler(async (req, res) => {
     .insert({
       ...rest,
       department: rest.department || null,
+      course: rest.course || null,
       id_number: rest.id_number || null,
       phone: rest.phone || null,
       password_hash: await hashPassword(password),
+      qr_code: roleNeedsQrCode(rest.role) ? generateQrCode() : null,
     })
     .select(PUBLIC_FIELDS)
     .single();
@@ -161,7 +238,7 @@ export const updateUser = asyncHandler(async (req, res) => {
     if (clash) throw ApiError.conflict('An account with that email already exists.');
   }
 
-  for (const key of ['department', 'id_number', 'phone']) {
+  for (const key of ['department', 'course', 'id_number', 'phone']) {
     if (patch[key] === '') patch[key] = null;
   }
 

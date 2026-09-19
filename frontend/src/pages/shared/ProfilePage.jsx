@@ -3,7 +3,11 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
 import authService from '../../services/authService.js';
 import StatusBadge from '../../components/StatusBadge.jsx';
+import QrCard from '../../components/QrCard.jsx';
+import AvatarUpload from '../../components/AvatarUpload.jsx';
+import Avatar from '../../components/Avatar.jsx';
 import { formatDateTime, initials, ROLE_LABEL } from '../../utils/format.js';
+import { PROGRAMS, coursesFor } from '../../utils/labConstants.js';
 
 /** Profile and password management — the same for all three roles. */
 export default function ProfilePage() {
@@ -13,6 +17,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState({
     full_name: user?.full_name ?? '',
     department: user?.department ?? '',
+    course: user?.course ?? '',
     id_number: user?.id_number ?? '',
     phone: user?.phone ?? '',
   });
@@ -32,7 +37,6 @@ export default function ProfilePage() {
     try {
       const updated = await authService.updateProfile({
         full_name: profile.full_name.trim(),
-        department: profile.department.trim(),
         id_number: profile.id_number.trim(),
         phone: profile.phone.trim(),
       });
@@ -83,10 +87,9 @@ export default function ProfilePage() {
             <h2>Account</h2>
           </div>
           <div className="card-body">
-            <div className="row" style={{ marginBottom: '1.25rem' }}>
-              <span className="avatar" style={{ width: 52, height: 52, fontSize: '1.05rem' }}>
-                {initials(user?.full_name)}
-              </span>
+            <div className="row" style={{ marginBottom: '1.25rem', gap: '1rem' }}>
+              {/* The picture is the control: click it, or the +, to change. */}
+              <AvatarUpload user={user} onChange={setUser} size={84} />
               <div>
                 <div style={{ fontWeight: 700, fontSize: '1.05rem' }}>{user?.full_name}</div>
                 <div className="small muted">{user?.email}</div>
@@ -96,6 +99,7 @@ export default function ProfilePage() {
                 </div>
               </div>
             </div>
+
 
             <form className="stack" onSubmit={saveProfile} noValidate>
               <div className="field">
@@ -113,20 +117,27 @@ export default function ProfilePage() {
                 <label htmlFor="p-email">Email</label>
                 {/* Changing the sign-in address is an administrator action. */}
                 <input id="p-email" className="input" value={user?.email ?? ''} disabled />
-                <span className="small muted">Contact an administrator to change your email.</span>
+                <span className="small muted">
+                  Your email, programme and course are set by the laboratory. Contact an
+                  administrator if any of them need correcting.
+                </span>
               </div>
 
               <div className="form-grid">
+                {/* Set at sign-up and fixed thereafter. The API rejects
+                    these fields on a self-edit, so this is a reflection of
+                    the rule rather than the rule itself. */}
                 <div className="field">
-                  <label htmlFor="p-dept">Department</label>
-                  <input
-                    id="p-dept"
-                    className="input"
-                    value={profile.department}
-                    onChange={(e) => setProfile({ ...profile, department: e.target.value })}
-                    disabled={savingProfile}
-                  />
+                  <label htmlFor="p-dept">Programme</label>
+                  <input id="p-dept" className="input" value={user?.department || 'Not set'} disabled />
                 </div>
+
+                {user?.role === 'student' && (
+                  <div className="field">
+                    <label htmlFor="p-course">Course and year</label>
+                    <input id="p-course" className="input" value={user?.course || 'Not set'} disabled />
+                  </div>
+                )}
 
                 <div className="field">
                   <label htmlFor="p-id">ID number</label>
@@ -221,6 +232,24 @@ export default function ProfilePage() {
               </form>
             </div>
           </section>
+
+          {/* Administrators do not carry a scannable card. */}
+          {user?.role !== 'admin' && (
+            <section className="card">
+              <div className="card-header">
+                <h2>My laboratory card</h2>
+                <span className="badge badge-brand badge-plain">QR</span>
+              </div>
+              <div className="card-body">
+                <QrCard user={user} />
+                <p className="small muted" style={{ marginTop: '0.9rem', marginBottom: 0 }}>
+                  Show this at the laboratory to identify yourself. Print it or save it to your
+                  phone — a screenshot scans just as well. If you lose it, an administrator can
+                  issue a new one, which stops the old card working.
+                </p>
+              </div>
+            </section>
+          )}
 
           <section className="card">
             <div className="card-header">
