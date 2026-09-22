@@ -13,8 +13,8 @@ export default function NotFound() {
           <p className="muted small">
             The page you are looking for does not exist, or you do not have access to it.
           </p>
-          <Link to={isAuthenticated ? homePath : '/login'} className="btn btn-primary">
-            {isAuthenticated ? 'Back to my dashboard' : 'Go to sign in'}
+          <Link to={homePath} className="btn btn-primary">
+            {isAuthenticated ? 'Back to my dashboard' : 'Back to the home page'}
           </Link>
         </div>
       </div>

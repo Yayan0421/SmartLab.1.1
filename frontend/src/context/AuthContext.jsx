@@ -74,7 +74,8 @@ export function AuthProvider({ children }) {
       setUser,
       isAuthenticated: Boolean(user),
       role: user?.role ?? null,
-      homePath: user ? HOME_BY_ROLE[user.role] : '/login',
+      // No session: home is the landing page, not the sign-in form.
+      homePath: user ? HOME_BY_ROLE[user.role] : '/',
     }),
     [user, loading, login, register, registerAdmin, logout]
   );

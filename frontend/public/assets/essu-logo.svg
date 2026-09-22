@@ -1,0 +1,37 @@
+<svg width="220" height="220" viewBox="0 0 220 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="essuGreen" x1="35" y1="35" x2="185" y2="185" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2FAF62"/>
+      <stop offset="1" stop-color="#0D7B41"/>
+    </linearGradient>
+  </defs>
+
+  <circle cx="110" cy="110" r="98" fill="#0A0F18"/>
+  <circle cx="110" cy="110" r="90" fill="url(#essuGreen)" stroke="#D3F7DA" stroke-width="4"/>
+  <circle cx="110" cy="110" r="72" fill="#0F1E27" stroke="#D3F7DA" stroke-width="3"/>
+
+  <g stroke="#D7FBE0" stroke-width="4" stroke-linecap="round" opacity="0.9">
+    <path d="M28 110H42M178 110H192M110 28V42M110 178V192"/>
+    <path d="M55 55L62 62M158 55L151 62M55 165L62 158M158 165L151 158"/>
+  </g>
+
+  <g fill="#F4E34A">
+    <path d="M110 55L132 95H88L110 55Z"/>
+    <path d="M95 92H125L110 113L95 92Z" fill="#F7D93F"/>
+    <rect x="105" y="95" width="10" height="54" rx="3"/>
+    <path d="M91 151C99 139 105 136 110 136C115 136 121 139 129 151L110 172L91 151Z" fill="#F7D93F"/>
+  </g>
+
+  <g fill="#F2F8FF">
+    <path d="M68 145L81 118L94 145H68Z"/>
+    <path d="M126 145L139 118L152 145H126Z"/>
+    <path d="M83 145H137L129 156H91L83 145Z"/>
+  </g>
+
+  <g fill="#F9F1C7" font-family="Arial, sans-serif" font-weight="800" text-anchor="middle">
+    <text x="110" y="97" font-size="20">ESSU</text>
+    <text x="110" y="118" font-size="8">EST. 1959</text>
+  </g>
+
+  <text x="110" y="180" text-anchor="middle" fill="#E3FFF2" font-size="12" font-family="Arial, sans-serif" font-weight="700" letter-spacing="1.2">EASTERN SAMAR</text>
+</svg>

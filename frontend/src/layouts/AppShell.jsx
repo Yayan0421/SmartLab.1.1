@@ -38,10 +38,12 @@ export default function AppShell({ navItems, roleLabel, bottomNav = false }) {
     try {
       await logout();
       toast.success('You have been signed out.');
-      navigate('/login', { replace: true });
+      // Out of the system means back to the front of it, not to a form
+      // asking you to go back in.
+      navigate('/', { replace: true });
     } catch {
       toast.error('Could not sign out cleanly, but your session was cleared.');
-      navigate('/login', { replace: true });
+      navigate('/', { replace: true });
     }
   }
 

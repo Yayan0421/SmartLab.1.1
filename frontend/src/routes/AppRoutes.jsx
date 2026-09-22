@@ -11,6 +11,10 @@ import AdminLogin from '../pages/auth/AdminLogin.jsx';
 import AdminRegister from '../pages/auth/AdminRegister.jsx';
 const Kiosk = lazy(() => import('../pages/kiosk/Kiosk.jsx'));
 
+// The public front door. Lazy, because a signed-in person goes straight to
+// their dashboard and should never download the marketing page to do it.
+const Landing = lazy(() => import('../pages/Landing.jsx'));
+
 import AdminLayout from '../layouts/AdminLayout.jsx';
 import FacultyLayout from '../layouts/FacultyLayout.jsx';
 import StudentLayout from '../layouts/StudentLayout.jsx';
@@ -107,10 +111,15 @@ export default function AppRoutes() {
           </Route>
         </Route>
 
-        {/* Landing: send people wherever their role belongs. */}
-        <Route element={<ProtectedRoute />}>
-          <Route path="/" element={<RoleRedirect />} />
-        </Route>
+        {/*
+          The front door.
+
+          A visitor gets the landing page; somebody already signed in gets
+          their own dashboard, because showing a logged-in user a "Get
+          Started" button is asking them to start something they are in
+          the middle of.
+        */}
+        <Route path="/" element={<Front />} />
 
         <Route path="*" element={<NotFound />} />
       </Routes>
@@ -118,8 +127,17 @@ export default function AppRoutes() {
   );
 }
 
-/** Sends an authenticated user to their own dashboard. */
-function RoleRedirect() {
-  const { homePath } = useAuth();
-  return <Navigate to={homePath} replace />;
+/**
+ * The root path, which means two different things depending on who asks.
+ *
+ * While the session is still being restored it renders nothing rather
+ * than the landing page: a signed-in user would otherwise see the
+ * marketing page flash before being redirected away from it.
+ */
+function Front() {
+  const { user, loading, homePath } = useAuth();
+
+  if (loading) return <PageFallback />;
+  if (user) return <Navigate to={homePath} replace />;
+  return <Landing />;
 }

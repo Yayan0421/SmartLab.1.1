@@ -51,7 +51,7 @@ export default function ProfilePage() {
     } catch {
       toast.error('Could not sign out cleanly, but your session was cleared.');
     }
-    navigate('/login', { replace: true });
+    navigate('/', { replace: true });
   }
 
   async function saveProfile(event) {
