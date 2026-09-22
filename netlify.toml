@@ -1,13 +1,14 @@
 # Netlify build for the SMARTLAB front end.
 #
 # This file must sit at the repository root: that is where Netlify looks
-# for it. `base` then points at the sub-directory holding the front end,
-# and every other path here stays relative to the root.
+# for it. `base` points at the sub-directory holding the front end, and
+# `publish` is then resolved *relative to base* — hence "dist" and not
+# "frontend/dist", which would resolve to frontend/frontend/dist.
 
 [build]
   base    = "frontend"
   command = "npm ci && npm run build"
-  publish = "frontend/dist"
+  publish = "dist"
 
 [build.environment]
   NODE_VERSION = "20"
