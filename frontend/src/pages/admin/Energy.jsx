@@ -1,12 +1,19 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import energyService from '../../services/energyService.js';
 import useFetch from '../../hooks/useFetch.js';
 import StatCard from '../../components/StatCard.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import ErrorState from '../../components/ErrorState.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
+import Modal from '../../components/Modal.jsx';
 import { EnergyAreaChart, RankingBarChart } from '../../components/charts.jsx';
-import { formatCurrency, formatNumber, todayISO, addDaysISO } from '../../utils/format.js';
+import {
+  formatCurrency,
+  formatNumber,
+  formatDateTime,
+  todayISO,
+  addDaysISO,
+} from '../../utils/format.js';
 
 const PERIODS = [
   { key: 'today', label: 'Today' },
@@ -17,6 +24,7 @@ const PERIODS = [
 
 export default function AdminEnergy() {
   const [period, setPeriod] = useState('today');
+  const [detail, setDetail] = useState(null);
   const [from, setFrom] = useState(addDaysISO(-7));
   const [to, setTo] = useState(todayISO());
 
@@ -43,7 +51,8 @@ export default function AdminEnergy() {
   if (summaryError) return <ErrorState message={summaryError} onRetry={refetch} />;
 
   const currency = summary.currency;
-  const ranking = (rankData?.data ?? []).slice(0, 10).map((item) => ({
+  const rankedComputers = rankData?.data ?? [];
+  const ranking = rankedComputers.slice(0, 10).map((item) => ({
     name: item.name,
     value: Number(item.energy_kwh.toFixed(3)),
   }));
@@ -194,9 +203,34 @@ export default function AdminEnergy() {
             {ranking.length === 0 ? (
               <EmptyState icon="📊" title="No data for this period" />
             ) : (
-              <div className="chart-box">
-                <RankingBarChart data={ranking} unit=" kWh" />
-              </div>
+              <>
+                <div className="chart-box">
+                  <RankingBarChart data={ranking} unit=" kWh" />
+                </div>
+
+                {/* The chart shows the shape; the list is what you can act
+                    on. Opening a machine gives its readings rather than
+                    its share of a bar. */}
+                <div className="energy-list">
+                  {rankedComputers.slice(0, 10).map((item, index) => (
+                    <button
+                      key={item.computer_id}
+                      type="button"
+                      className="energy-row"
+                      onClick={() => setDetail(item)}
+                    >
+                      <span className="energy-rank">{index + 1}</span>
+                      <span className="energy-name">{item.name}</span>
+                      <span className="energy-kwh">
+                        {item.energy_kwh.toFixed(3)} kWh
+                      </span>
+                      <span className="energy-cost">
+                        {formatCurrency(item.energy_kwh * summary.rate_per_kwh, currency)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         </section>
@@ -216,6 +250,136 @@ export default function AdminEnergy() {
           )}
         </div>
       </section>
+
+      <EnergyDetailModal
+        computer={detail}
+        period={period}
+        from={from}
+        to={to}
+        rate={summary.rate_per_kwh}
+        currency={currency}
+        onClose={() => setDetail(null)}
+      />
     </>
+  );
+}
+
+/**
+ * One machine's power record for the chosen period.
+ *
+ * The ranking answers "which machines cost the most"; this answers the
+ * question that follows it — why. The readings are the raw meter output,
+ * newest first, because an administrator chasing an anomaly wants the
+ * moment it happened rather than a daily average.
+ */
+function EnergyDetailModal({ computer, period, from, to, rate, currency, onClose }) {
+  const [readings, setReadings] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!computer) {
+      setReadings(null);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+
+    const params =
+      period === 'custom' ? { period: 'custom', from, to, limit: 12 } : { period, limit: 12 };
+
+    energyService
+      .forComputer(computer.computer_id, params)
+      .then((res) => {
+        if (!cancelled) setReadings(res.data ?? []);
+      })
+      .catch(() => {
+        // The totals above are still true even if the detail will not load.
+        if (!cancelled) setReadings([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [computer, period, from, to]);
+
+  const latest = readings?.[0];
+
+  return (
+    <Modal
+      open={Boolean(computer)}
+      onClose={onClose}
+      title={computer ? `${computer.name} · power` : 'Power'}
+      size="lg"
+      footer={
+        <button type="button" className="btn btn-primary" onClick={onClose}>
+          Close
+        </button>
+      }
+    >
+      {computer && (
+        <>
+          <div className="stat-grid" style={{ marginBottom: '1rem' }}>
+            <StatCard
+              label="Consumed"
+              value={`${computer.energy_kwh.toFixed(3)} kWh`}
+              icon="⚡"
+            />
+            <StatCard
+              label="Estimated cost"
+              value={formatCurrency(computer.energy_kwh * rate, currency)}
+              icon="₱"
+            />
+            <StatCard
+              label="Latest reading"
+              value={latest ? `${formatNumber(latest.power_watt)} W` : '—'}
+              icon="🔌"
+            />
+          </div>
+
+          <div className="section-title">Recent readings</div>
+
+          {loading ? (
+            <Spinner label="Loading readings…" />
+          ) : readings?.length ? (
+            <div className="table-wrap table-cards-wrap">
+              <table className="table table-cards">
+                <thead>
+                  <tr>
+                    <th>Recorded</th>
+                    <th>Power</th>
+                    <th>Voltage</th>
+                    <th>Current</th>
+                    <th>Energy</th>
+                    <th>Temp.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {readings.map((r) => (
+                    <tr key={r.id}>
+                      <td className="nowrap" data-label="Recorded">
+                        {formatDateTime(r.recorded_at)}
+                      </td>
+                      <td data-label="Power">{formatNumber(r.power_watt)} W</td>
+                      <td data-label="Voltage">{formatNumber(r.voltage)} V</td>
+                      <td data-label="Current">{formatNumber(r.current_amp)} A</td>
+                      <td data-label="Energy">{Number(r.energy_kwh).toFixed(4)} kWh</td>
+                      <td data-label="Temp.">
+                        {r.temperature == null ? '—' : `${formatNumber(r.temperature)} °C`}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyState icon="⚡" title="No readings in this period" />
+          )}
+        </>
+      )}
+    </Modal>
   );
 }

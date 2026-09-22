@@ -370,3 +370,15 @@
   .topbar-title { font-size: 0.925rem; }
   .chart-grid { grid-template-columns: 1fr; }
 }
+
+/* The title and its context, stacked. Only the phone shows the second
+   line; on a laptop the sidebar already says which role you are in. */
+.topbar-heading {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.topbar-sub { display: none; }

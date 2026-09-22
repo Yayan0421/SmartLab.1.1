@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import notificationService from '../services/notificationService.js';
 import usePolling from '../hooks/usePolling.js';
-import { timeAgo } from '../utils/format.js';
+import { formatDateTime, timeAgo } from '../utils/format.js';
+import Modal from './Modal.jsx';
 
 /**
  * Topbar notifications.
@@ -15,6 +16,7 @@ export default function NotificationBell() {
   const [items, setItems] = useState([]);
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [detail, setDetail] = useState(null);
   const wrapRef = useRef(null);
 
   const load = useCallback(async () => {
@@ -115,7 +117,13 @@ export default function NotificationBell() {
                 key={item.id}
                 type="button"
                 className={`notif-item ${item.is_read ? '' : 'is-unread'}`}
-                onClick={() => markRead(item)}
+                onClick={() => {
+                  // The dropdown truncates; the dialog is where the whole
+                  // message lives. Opening one is also reading it.
+                  markRead(item);
+                  setDetail({ ...item, is_read: true });
+                  setOpen(false);
+                }}
               >
                 <div className="notif-title">{item.title}</div>
                 {item.message && <div className="notif-msg">{item.message}</div>}
@@ -125,6 +133,35 @@ export default function NotificationBell() {
           )}
         </div>
       )}
+
+      <Modal
+        open={Boolean(detail)}
+        onClose={() => setDetail(null)}
+        title={detail?.title ?? 'Notification'}
+        footer={
+          <button type="button" className="btn btn-primary" onClick={() => setDetail(null)}>
+            Close
+          </button>
+        }
+      >
+        {detail && (
+          <div className="stack" style={{ gap: '0.75rem' }}>
+            <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+              {detail.message || 'No further detail was recorded.'}
+            </p>
+
+            <div className="row-between">
+              <span className="muted small">Received</span>
+              <strong className="small">{formatDateTime(detail.created_at)}</strong>
+            </div>
+
+            <div className="row-between">
+              <span className="muted small">Age</span>
+              <strong className="small">{timeAgo(detail.created_at)}</strong>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

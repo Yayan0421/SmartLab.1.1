@@ -9,8 +9,8 @@ import ErrorState from '../../components/ErrorState.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Pagination from '../../components/Pagination.jsx';
 import BookingFormModal from '../../components/BookingFormModal.jsx';
-import { ConfirmDialog } from '../../components/Modal.jsx';
-import { formatDate, formatTimeRange, todayISO } from '../../utils/format.js';
+import Modal, { ConfirmDialog } from '../../components/Modal.jsx';
+import { formatDate, formatDateTime, formatTimeRange, todayISO } from '../../utils/format.js';
 
 const TABS = [
   { key: 'upcoming', label: 'Upcoming' },
@@ -26,6 +26,7 @@ export default function MyBookingsPage() {
   const [page, setPage] = useState(1);
   const [creating, setCreating] = useState(false);
   const [cancelTarget, setCancelTarget] = useState(null);
+  const [detail, setDetail] = useState(null);
   const [cancelling, setCancelling] = useState(false);
 
   const { data, loading, error, refetch } = useFetch(
@@ -157,7 +158,11 @@ export default function MyBookingsPage() {
                 </thead>
                 <tbody>
                   {bookings.map((booking) => (
-                    <tr key={booking.id}>
+                    <tr
+                      key={booking.id}
+                      className="is-clickable"
+                      onClick={() => setDetail(booking)}
+                    >
                       <td data-label="Computer">
                         <strong>{booking.computer?.name ?? '—'}</strong>
                         <div className="small muted">{booking.computer?.laboratory?.name ?? ''}</div>
@@ -187,7 +192,12 @@ export default function MyBookingsPage() {
                           <button
                             type="button"
                             className="btn btn-ghost btn-sm"
-                            onClick={() => setCancelTarget(booking)}
+                            onClick={(e) => {
+                              // The row opens the record; this button is a
+                              // different decision and must not do both.
+                              e.stopPropagation();
+                              setCancelTarget(booking);
+                            }}
                           >
                             Cancel
                           </button>
@@ -203,6 +213,80 @@ export default function MyBookingsPage() {
           </>
         )}
       </div>
+
+
+      {/*
+        The whole record of one booking.
+
+        The table shows what fits in a column; this shows the rest — the
+        receipt number, when it was checked in and out, and an
+        administrator's note explaining a rejection, which is the one
+        thing somebody actually needs when a request comes back refused.
+      */}
+      <Modal
+        open={Boolean(detail)}
+        onClose={() => setDetail(null)}
+        title="Booking details"
+        size="lg"
+        footer={
+          <>
+            <button type="button" className="btn btn-secondary" onClick={() => setDetail(null)}>
+              Close
+            </button>
+            {detail && canCancel(detail) && (
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={() => {
+                  setCancelTarget(detail);
+                  setDetail(null);
+                }}
+              >
+                Cancel booking
+              </button>
+            )}
+          </>
+        }
+      >
+        {detail && (
+          <>
+            <div className="row" style={{ justifyContent: 'space-between', marginBottom: '1rem' }}>
+              <div>
+                <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>
+                  {detail.computer?.name ?? '—'}
+                </div>
+                <div className="small muted">
+                  {detail.computer?.laboratory?.name ?? ''}
+                  {detail.computer?.laboratory?.room_number
+                    ? ` · Room ${detail.computer.laboratory.room_number}`
+                    : ''}
+                </div>
+              </div>
+              <StatusBadge value={detail.status} />
+            </div>
+
+            <div className="stack" style={{ gap: '0.7rem' }}>
+              <DetailRow label="Date" value={formatDate(detail.booking_date)} />
+              <DetailRow
+                label="Time"
+                value={formatTimeRange(detail.start_time, detail.end_time)}
+              />
+              <DetailRow label="Subject" value={detail.subject} />
+              <DetailRow label="Purpose" value={detail.purpose} />
+              <DetailRow label="Requested" value={formatDateTime(detail.created_at)} />
+              <DetailRow label="Receipt" value={detail.receipt_no} />
+              <DetailRow label="Checked in" value={formatDateTime(detail.checked_in_at)} />
+              <DetailRow label="Checked out" value={formatDateTime(detail.checked_out_at)} />
+            </div>
+
+            {detail.decision_note && (
+              <div className="alert alert-warning" style={{ marginTop: '1rem' }}>
+                <strong>Note from the administrator:</strong> {detail.decision_note}
+              </div>
+            )}
+          </>
+        )}
+      </Modal>
 
       <BookingFormModal open={creating} onClose={() => setCreating(false)} onCreated={refetch} />
 
@@ -222,5 +306,15 @@ export default function MyBookingsPage() {
         }
       />
     </>
+  );
+}
+
+function DetailRow({ label, value }) {
+  if (!value) return null;
+  return (
+    <div className="row-between">
+      <span className="muted small">{label}</span>
+      <strong className="small">{value}</strong>
+    </div>
   );
 }

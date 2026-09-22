@@ -4,6 +4,7 @@ import { useAuth, HOME_BY_ROLE } from '../../context/AuthContext.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
 import AuthInput from '../../components/AuthInput.jsx';
 import { MailIcon, LockIcon, LoginIcon, UserPlusIcon } from '../../components/icons.jsx';
+import Logo from '../../components/Logo.jsx';
 
 // Administrators are not listed here — they sign in at /admin/login.
 const QUICK = [
@@ -98,12 +99,10 @@ export default function Login() {
       <div className="auth-panel">
         <div className="auth-inner">
           <div className="auth-brand">
-            <span className="auth-brand-mark" onClick={handleLogoClick} aria-hidden="true">
-              SL
-            </span>
+            <Logo size={50} className="auth-brand-mark" onClick={handleLogoClick} />
             <span className="auth-wordmark">
-              <span className="wm-dark">smart</span>
-              <span className="wm-accent">lab</span>
+              <span className="wm-dark">Smart</span>
+              <span className="wm-accent">Lab</span>
             </span>
           </div>
 

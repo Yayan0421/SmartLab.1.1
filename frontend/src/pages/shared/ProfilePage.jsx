@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
 import authService from '../../services/authService.js';
@@ -6,13 +7,15 @@ import StatusBadge from '../../components/StatusBadge.jsx';
 import QrCard from '../../components/QrCard.jsx';
 import AvatarUpload from '../../components/AvatarUpload.jsx';
 import Avatar from '../../components/Avatar.jsx';
+import Modal from '../../components/Modal.jsx';
 import { formatDateTime, initials, ROLE_LABEL } from '../../utils/format.js';
 import { PROGRAMS, coursesFor } from '../../utils/labConstants.js';
 
 /** Profile and password management — the same for all three roles. */
 export default function ProfilePage() {
-  const { user, setUser } = useAuth();
+  const { user, setUser, logout } = useAuth();
   const toast = useToast();
+  const navigate = useNavigate();
 
   const [profile, setProfile] = useState({
     full_name: user?.full_name ?? '',
@@ -22,10 +25,34 @@ export default function ProfilePage() {
     phone: user?.phone ?? '',
   });
   const [savingProfile, setSavingProfile] = useState(false);
+  const [editing, setEditing] = useState(false);
+
+  // Re-seed the form whenever the dialog opens, so a cancelled edit does
+  // not leave its half-typed values behind for the next one.
+  useEffect(() => {
+    if (!editing) return;
+    setProfile({
+      full_name: user?.full_name ?? '',
+      department: user?.department ?? '',
+      course: user?.course ?? '',
+      id_number: user?.id_number ?? '',
+      phone: user?.phone ?? '',
+    });
+  }, [editing, user]);
 
   const [passwords, setPasswords] = useState({ current_password: '', new_password: '', confirm: '' });
   const [passwordError, setPasswordError] = useState('');
   const [savingPassword, setSavingPassword] = useState(false);
+
+  async function handleLogout() {
+    try {
+      await logout();
+      toast.success('You have been signed out.');
+    } catch {
+      toast.error('Could not sign out cleanly, but your session was cleared.');
+    }
+    navigate('/login', { replace: true });
+  }
 
   async function saveProfile(event) {
     event.preventDefault();
@@ -41,6 +68,7 @@ export default function ProfilePage() {
         phone: profile.phone.trim(),
       });
       setUser(updated);
+      setEditing(false);
       toast.success('Profile updated.');
     } catch (error) {
       toast.error(error.message);
@@ -101,73 +129,22 @@ export default function ProfilePage() {
             </div>
 
 
-            <form className="stack" onSubmit={saveProfile} noValidate>
-              <div className="field">
-                <label htmlFor="p-name">Full name</label>
-                <input
-                  id="p-name"
-                  className="input"
-                  value={profile.full_name}
-                  onChange={(e) => setProfile({ ...profile, full_name: e.target.value })}
-                  disabled={savingProfile}
-                />
-              </div>
+            <div className="stack" style={{ gap: '0.75rem' }}>
+              <Row label="Full name" value={user?.full_name} />
+              <Row label="Email" value={user?.email} />
+              <Row label="Programme" value={user?.department || 'Not set'} />
+              {user?.role === 'student' && (
+                <Row label="Course and year" value={user?.course || 'Not set'} />
+              )}
+              <Row label="ID number" value={user?.id_number || 'Not set'} />
+              <Row label="Phone" value={user?.phone || 'Not set'} />
+            </div>
 
-              <div className="field">
-                <label htmlFor="p-email">Email</label>
-                {/* Changing the sign-in address is an administrator action. */}
-                <input id="p-email" className="input" value={user?.email ?? ''} disabled />
-                <span className="small muted">
-                  Your email, programme and course are set by the laboratory. Contact an
-                  administrator if any of them need correcting.
-                </span>
-              </div>
-
-              <div className="form-grid">
-                {/* Set at sign-up and fixed thereafter. The API rejects
-                    these fields on a self-edit, so this is a reflection of
-                    the rule rather than the rule itself. */}
-                <div className="field">
-                  <label htmlFor="p-dept">Programme</label>
-                  <input id="p-dept" className="input" value={user?.department || 'Not set'} disabled />
-                </div>
-
-                {user?.role === 'student' && (
-                  <div className="field">
-                    <label htmlFor="p-course">Course and year</label>
-                    <input id="p-course" className="input" value={user?.course || 'Not set'} disabled />
-                  </div>
-                )}
-
-                <div className="field">
-                  <label htmlFor="p-id">ID number</label>
-                  <input
-                    id="p-id"
-                    className="input"
-                    value={profile.id_number}
-                    onChange={(e) => setProfile({ ...profile, id_number: e.target.value })}
-                    disabled={savingProfile}
-                  />
-                </div>
-              </div>
-
-              <div className="field">
-                <label htmlFor="p-phone">Phone</label>
-                <input
-                  id="p-phone"
-                  className="input"
-                  value={profile.phone}
-                  onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                  disabled={savingProfile}
-                />
-              </div>
-
-              <div className="row" style={{ justifyContent: 'flex-end' }}>
-                <button type="submit" className="btn btn-primary" disabled={savingProfile}>
-                  {savingProfile ? 'Saving…' : 'Save changes'}
-                </button>
-              </div>
-            </form>
+            <div className="row" style={{ justifyContent: 'flex-end', marginTop: '1rem' }}>
+              <button type="button" className="btn btn-primary" onClick={() => setEditing(true)}>
+                Edit profile
+              </button>
+            </div>
           </div>
         </section>
 
@@ -260,9 +237,105 @@ export default function ProfilePage() {
               <Row label="Member since" value={formatDateTime(user?.created_at)} />
               <Row label="Last sign-in" value={formatDateTime(user?.last_login_at)} />
             </div>
+            <div className="card-footer">
+              <button type="button" className="btn btn-secondary btn-block" onClick={handleLogout}>
+                Sign out
+              </button>
+            </div>
           </section>
         </div>
       </div>
+
+      {/*
+        Editing is a decision, so it gets a dialog.
+
+        Programme and course are shown but not editable: they are set at
+        sign-up and the API rejects them on a self-edit, so the disabled
+        fields are a reflection of that rule rather than the rule itself.
+      */}
+      <Modal
+        open={editing}
+        onClose={() => !savingProfile && setEditing(false)}
+        title="Edit profile"
+        footer={
+          <>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setEditing(false)}
+              disabled={savingProfile}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="profile-form"
+              className="btn btn-primary"
+              disabled={savingProfile}
+            >
+              {savingProfile ? 'Saving…' : 'Save changes'}
+            </button>
+          </>
+        }
+      >
+        <form id="profile-form" className="stack" onSubmit={saveProfile} noValidate>
+          <div className="field">
+            <label htmlFor="p-name">Full name</label>
+            <input
+              id="p-name"
+              className="input"
+              value={profile.full_name}
+              onChange={(e) => setProfile({ ...profile, full_name: e.target.value })}
+              disabled={savingProfile}
+            />
+          </div>
+
+          <div className="field">
+            <label htmlFor="p-email">Email</label>
+            <input id="p-email" className="input" value={user?.email ?? ''} disabled />
+            <span className="small muted">
+              Your email, programme and course are set by the laboratory. Contact an
+              administrator if any of them need correcting.
+            </span>
+          </div>
+
+          <div className="form-grid">
+            <div className="field">
+              <label htmlFor="p-dept">Programme</label>
+              <input id="p-dept" className="input" value={user?.department || 'Not set'} disabled />
+            </div>
+
+            {user?.role === 'student' && (
+              <div className="field">
+                <label htmlFor="p-course">Course and year</label>
+                <input id="p-course" className="input" value={user?.course || 'Not set'} disabled />
+              </div>
+            )}
+
+            <div className="field">
+              <label htmlFor="p-id">ID number</label>
+              <input
+                id="p-id"
+                className="input"
+                value={profile.id_number}
+                onChange={(e) => setProfile({ ...profile, id_number: e.target.value })}
+                disabled={savingProfile}
+              />
+            </div>
+          </div>
+
+          <div className="field">
+            <label htmlFor="p-phone">Phone</label>
+            <input
+              id="p-phone"
+              className="input"
+              value={profile.phone}
+              onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+              disabled={savingProfile}
+            />
+          </div>
+        </form>
+      </Modal>
     </>
   );
 }

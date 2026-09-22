@@ -162,33 +162,71 @@
   /* ------------------------------------------------------------------
      Topbar
      ------------------------------------------------------------------
-     The title is already in the tab bar, so the space goes to the things
-     that are not: notifications, the avatar, and a way out. Sign out
-     stays visible — the profile page offers no other route, and hiding
-     it would strand somebody on a phone.
+     An app bar rather than a shrunken desktop header: the mark, the page
+     and who you are on the left; notifications and your picture on the
+     right. Nothing else.
+
+     "Sign out" was a text button wedged between two icons, which is what
+     made the header look unfinished — and it was the widest thing in it.
+     It moves to the profile page, which is exactly what the avatar next
+     to it opens, so it is one tap further away and no longer competing
+     with the page title for room.
      ------------------------------------------------------------------ */
-  .topbar {
-    gap: 0.35rem;
-    padding: 0 0.75rem;
+  .shell.has-tabbar .topbar {
+    gap: 0.6rem;
+    padding: 0 0.85rem;
+    background: var(--surface);
+    backdrop-filter: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .shell.has-tabbar .topbar-signout { display: none; }
+
+  /* The mark, so the header belongs to a product and not just a page. */
+  .topbar-brand {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    border-radius: 9px;
+    background: var(--burgundy);
+    color: var(--ivory);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
   }
 
   .shell.has-tabbar .topbar-title {
     font-size: 1.02rem;
     font-weight: 700;
+    letter-spacing: -0.01em;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .shell.has-tabbar .topbar .btn-secondary {
-    padding: 0.4rem 0.7rem;
-    font-size: 0.8rem;
+  /* The context the sidebar used to give: which role, which product. */
+  .shell.has-tabbar .topbar-sub {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-subtle);
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .shell.has-tabbar .icon-btn {
     width: 42px;
     height: 42px;
+  }
+
+  /* The avatar reads as a control, not a decoration. */
+  .shell.has-tabbar .topbar .avatar {
+    box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--border-strong);
   }
 }
 
@@ -367,6 +405,35 @@
   }
 
   .modal-footer .btn { width: 100%; }
+
+  /* -------------------------------------------------------------------
+     Modal content on a phone
+     -------------------------------------------------------------------
+     The dialogs themselves are already bottom sheets; this is about what
+     is inside them, where a label and a value fighting over 360px is the
+     usual failure.
+     ------------------------------------------------------------------- */
+  .confirm-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.15rem;
+  }
+  .confirm-value { text-align: left; }
+
+  /* Rank, name, kWh, cost will not sit on one line: the cost drops
+     beneath the name rather than squeezing every column. */
+  .energy-row {
+    grid-template-columns: 28px 1fr auto;
+    grid-template-areas:
+      'rank name kwh'
+      'rank cost cost';
+    row-gap: 0.1rem;
+    padding: 0.6rem 0.2rem;
+  }
+  .energy-rank { grid-area: rank; }
+  .energy-name { grid-area: name; }
+  .energy-kwh { grid-area: kwh; }
+  .energy-cost { grid-area: cost; text-align: left; font-size: 0.78rem; }
 
   /* -------------------------------------------------------------------
      Odds and ends

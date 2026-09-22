@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import NotificationBell from '../components/NotificationBell.jsx';
 import Avatar from '../components/Avatar.jsx';
+import Logo from '../components/Logo.jsx';
 import { ROLE_LABEL } from '../utils/format.js';
 
 /**
@@ -48,7 +49,7 @@ export default function AppShell({ navItems, roleLabel, bottomNav = false }) {
     <div className={`shell ${bottomNav ? 'has-tabbar' : ''}`}>
       <aside className={`sidebar ${sidebarOpen ? 'is-open' : ''}`}>
         <div className="sidebar-brand">
-          <span className="brand-mark" aria-hidden="true">SL</span>
+          <Logo size={38} className="brand-mark" />
           <span className="brand-text">
             <span className="brand-name">SMARTLAB</span>
             <span className="brand-role">{roleLabel}</span>
@@ -102,7 +103,21 @@ export default function AppShell({ navItems, roleLabel, bottomNav = false }) {
             ☰
           </button>
 
-          <span className="topbar-title">{current?.label ?? 'SMARTLAB'}</span>
+          {/*
+            The mark is the identity. On a laptop the sidebar carries it;
+            on a phone the sidebar is gone, and without this the header is
+            a page title with no product behind it. Shown only where the
+            sidebar is not.
+          */}
+          {bottomNav && (
+            <Logo size={34} className="topbar-brand" />
+          )}
+
+          <span className="topbar-heading">
+            <span className="topbar-title">{current?.label ?? 'SMARTLAB'}</span>
+            {bottomNav && <span className="topbar-sub">{roleLabel} · SMARTLAB</span>}
+          </span>
+
           <span className="topbar-spacer" />
 
           <NotificationBell />
@@ -116,7 +131,11 @@ export default function AppShell({ navItems, roleLabel, bottomNav = false }) {
             <Avatar user={user} size={34} />
           </Link>
 
-          <button type="button" className="btn btn-secondary" onClick={handleLogout}>
+          <button
+            type="button"
+            className="btn btn-secondary topbar-signout"
+            onClick={handleLogout}
+          >
             Sign out
           </button>
         </header>

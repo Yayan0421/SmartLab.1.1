@@ -9,7 +9,16 @@
 
 .auth-page {
   position: relative;
+  /* 100dvh, not 100vh.
+     
+     On a phone, 100vh is the height of the viewport with the browser's
+     address bar *collapsed* — a height the page does not actually have
+     when it first loads. A panel centred in it starts partly below the
+     fold, which on the sign-in screen means the submit button. dvh is
+     the height the viewport really has; the vh line stays first as the
+     fallback for anything that does not know dvh. */
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: stretch;
   isolation: isolate;
@@ -486,10 +495,48 @@
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 640px) {
+  /* The screens were deliberately made large; on a phone that size is
+     the thing standing between somebody and the form. Everything below
+     trades display type for fields you can actually reach. */
+  .auth-panel {
+    justify-content: flex-start;
+    padding: calc(1.5rem + env(safe-area-inset-top, 0px)) 1.15rem
+             calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
   .auth-wordmark { font-size: 2.2rem; }
-  .auth-heading { font-size: 2.3rem; }
+  .auth-heading { font-size: 1.85rem; line-height: 1.15; }
+  .auth-lede { margin: 0.5rem 0 1.25rem; font-size: 0.95rem; }
   .auth-grid { grid-template-columns: 1fr; }
+  .auth-footer { margin-top: 1.4rem; }
+
+  /* 16px or the field zooms the page on focus in iOS Safari, and never
+     zooms back — the most common way a web form feels broken on an
+     iPhone. The design was already at 1.05rem; this pins it. */
+  .af-input,
+  .af-select { font-size: 16px; }
+
+  .auth-submit {
+    height: 56px;
+    font-size: 1.05rem;
+  }
+
+  /* "Remember me" and "Forgot password?" stop fighting for one line. */
+  .auth-row {
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    font-size: 0.9rem;
+  }
+
+  /* A link is a tap target here, not just text. */
+  .auth-link { display: inline-block; padding: 0.15rem 0; }
+}
+
+@media (max-width: 380px) {
+  .auth-wordmark { font-size: 1.9rem; }
+  .auth-heading { font-size: 1.6rem; }
+  .auth-panel { padding-inline: 0.95rem; }
 }
 
 /* A <select> inside the pill field: strip the native chrome and add our own

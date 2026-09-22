@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
 import AuthInput from '../../components/AuthInput.jsx';
+import Logo from '../../components/Logo.jsx';
 import {
   UserIcon,
   MailIcon,
@@ -57,14 +58,14 @@ export default function AdminRegister() {
 
     setSubmitting(true);
     try {
-      await registerAdmin({
+      const user = await registerAdmin({
         full_name: form.full_name.trim(),
         email: form.email.trim(),
         password: form.password,
         admin_code: form.admin_code.trim(),
         department: form.department.trim(),
       });
-      toast.success('Administrator account created.');
+      toast.success(`Welcome, ${user.full_name.split(' ')[0]}!`);
       navigate('/admin/dashboard', { replace: true });
     } catch (error) {
       setBanner(error.message);
@@ -81,10 +82,10 @@ export default function AdminRegister() {
       <div className="auth-panel">
         <div className="auth-inner">
           <div className="auth-brand">
-            <span className="auth-brand-mark" aria-hidden="true">SL</span>
+            <Logo size={50} className="auth-brand-mark" />
             <span className="auth-wordmark">
-              <span className="wm-dark">smart</span>
-              <span className="wm-accent">lab</span>
+              <span className="wm-dark">Smart</span>
+              <span className="wm-accent">Lab</span>
             </span>
           </div>
 

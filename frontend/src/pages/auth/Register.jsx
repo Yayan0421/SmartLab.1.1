@@ -13,6 +13,7 @@ import {
   CapIcon,
 } from '../../components/icons.jsx';
 import { PROGRAMS, coursesFor } from '../../utils/labConstants.js';
+import Logo from '../../components/Logo.jsx';
 
 const EMPTY = {
   full_name: '',
@@ -69,7 +70,9 @@ export default function Register() {
         course: form.role === 'student' ? form.course : '',
         id_number: form.id_number.trim(),
       });
-      toast.success('Your account is ready.');
+      // "Welcome" on a first arrival, "Welcome back" on every one after:
+      // the greeting should know which of the two just happened.
+      toast.success(`Welcome, ${user.full_name.split(' ')[0]}!`);
       navigate(HOME_BY_ROLE[user.role], { replace: true });
     } catch (error) {
       setBanner(error.message);
@@ -86,10 +89,10 @@ export default function Register() {
       <div className="auth-panel">
         <div className="auth-inner">
           <div className="auth-brand">
-            <span className="auth-brand-mark" aria-hidden="true">SL</span>
+            <Logo size={50} className="auth-brand-mark" />
             <span className="auth-wordmark">
-              <span className="wm-dark">smart</span>
-              <span className="wm-accent">lab</span>
+              <span className="wm-dark">Smart</span>
+              <span className="wm-accent">Lab</span>
             </span>
           </div>
 

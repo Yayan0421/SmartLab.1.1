@@ -4,6 +4,7 @@ import { useToast } from '../../context/ToastContext.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import ErrorState from '../../components/ErrorState.jsx';
+import Modal from '../../components/Modal.jsx';
 import usePolling from '../../hooks/usePolling.js';
 import {
   LAB_SUBJECTS,
@@ -41,6 +42,7 @@ export default function BookingWorkspace() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   // The timetable comes from the laboratory's opening hours, so the form can
   // never offer a slot the server would refuse.
@@ -225,7 +227,15 @@ export default function BookingWorkspace() {
     });
   }
 
-  async function submit(event) {
+  /**
+   * The button asks; the dialog commits.
+   *
+   * A booking takes a machine out of circulation for an hour, and for a
+   * class it takes twenty. Checking the four choices are what somebody
+   * meant, once, before it happens, costs a tap and saves an
+   * administrator a cancellation.
+   */
+  function review(event) {
     event.preventDefault();
 
     if (!selected.length) {
@@ -235,6 +245,10 @@ export default function BookingWorkspace() {
       return toast.error('That time slot has already passed.');
     }
 
+    setConfirming(true);
+  }
+
+  async function submit() {
     setSubmitting(true);
     try {
       const payload = {
@@ -259,6 +273,7 @@ export default function BookingWorkspace() {
           : `Request for ${created.length} computer${created.length > 1 ? 's' : ''} sent for approval.`
       );
 
+      setConfirming(false);
       setSelected([]);
       load();
     } catch (err) {
@@ -499,7 +514,7 @@ export default function BookingWorkspace() {
             </h2>
           </div>
 
-          <form id="booking-form" className="card-body stack" onSubmit={submit}>
+          <form id="booking-form" className="card-body stack" onSubmit={review}>
             <div className="field field-date">
               <label htmlFor="bk-date">Date</label>
               <select
@@ -901,10 +916,102 @@ export default function BookingWorkspace() {
         </button>
       </div>
 
+
+      {/*
+        Booking confirmation.
+
+        Everything that is about to be reserved, in one place: what, when,
+        for how long, and what happens next. The last line is the part
+        people get wrong — a student's request waits for approval, a
+        member of staff's is immediate — so it is stated rather than
+        assumed.
+      */}
+      <Modal
+        open={confirming}
+        onClose={() => !submitting && setConfirming(false)}
+        title="Confirm your booking"
+        footer={
+          <>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setConfirming(false)}
+              disabled={submitting}
+            >
+              Go back
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={submit}
+              disabled={submitting}
+            >
+              {submitting
+                ? 'Submitting…'
+                : isStudent
+                  ? 'Send request'
+                  : `Confirm ${selected.length} computer${selected.length === 1 ? '' : 's'}`}
+            </button>
+          </>
+        }
+      >
+        <div className="confirm-list">
+          <ConfirmRow
+            label={selected.length === 1 ? 'Computer' : 'Computers'}
+            value={
+              selected.length === 1
+                ? computers.find((c) => c.id === selected[0])?.name ?? '—'
+                : `${selected.length} workstations`
+            }
+          />
+
+          {selected.length > 1 && (
+            <p className="confirm-machines">
+              {computers
+                .filter((c) => selected.includes(c.id))
+                .map((c) => c.name)
+                .join(', ')}
+            </p>
+          )}
+
+          <ConfirmRow
+            label="Date"
+            value={new Date(`${date}T00:00:00`).toLocaleDateString(undefined, {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+            })}
+          />
+          <ConfirmRow
+            label="Time"
+            value={formatTimeRange(toDbTime(slot.start), toDbTime(slot.end))}
+          />
+          <ConfirmRow label="Duration" value="1 hour" />
+          <ConfirmRow label="Subject" value={subject} />
+          <ConfirmRow label="Purpose" value={purpose} />
+        </div>
+
+        <p className={`confirm-note ${isStudent ? '' : 'is-immediate'}`}>
+          {isStudent
+            ? 'This request goes to an administrator for approval. You will be notified once it is decided.'
+            : 'Faculty bookings are confirmed immediately, and close the slot to students.'}
+        </p>
+      </Modal>
+
       {/* Keeps the last of the machine list clear of the fixed bars. A
           spacer rather than padding on an ancestor, so it does not depend
           on :has() being available on whatever phone this runs on. */}
       <div className="book-bar-spacer" aria-hidden="true" />
     </>
+  );
+}
+
+function ConfirmRow({ label, value }) {
+  return (
+    <div className="confirm-row">
+      <span className="confirm-label">{label}</span>
+      <strong className="confirm-value">{value}</strong>
+    </div>
   );
 }

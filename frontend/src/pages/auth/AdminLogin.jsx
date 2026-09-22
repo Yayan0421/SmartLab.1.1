@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
 import AuthInput from '../../components/AuthInput.jsx';
 import { MailIcon, LockIcon, LoginIcon, ShieldIcon } from '../../components/icons.jsx';
+import Logo from '../../components/Logo.jsx';
 
 /**
  * Administrator sign-in.
@@ -60,10 +61,10 @@ export default function AdminLogin() {
       <div className="auth-panel">
         <div className="auth-inner">
           <div className="auth-brand">
-            <span className="auth-brand-mark" aria-hidden="true">SL</span>
+            <Logo size={50} className="auth-brand-mark" />
             <span className="auth-wordmark">
-              <span className="wm-dark">smart</span>
-              <span className="wm-accent">lab</span>
+              <span className="wm-dark">Smart</span>
+              <span className="wm-accent">Lab</span>
             </span>
           </div>
 

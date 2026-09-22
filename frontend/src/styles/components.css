@@ -1150,3 +1150,150 @@
   background: var(--surface);
   font-size: 0.8125rem;
 }
+
+/* =====================================================================
+   Modal content: confirmation lists and clickable rows
+   ===================================================================== */
+
+/* The booking confirmation reads as a receipt rather than a form: the
+   choices are already made, and this is the last look at them. */
+.confirm-list {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.confirm-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.65rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+}
+.confirm-row:last-child { border-bottom: none; }
+
+.confirm-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  flex-shrink: 0;
+}
+
+.confirm-value {
+  font-size: 0.95rem;
+  text-align: right;
+  word-break: break-word;
+}
+
+.confirm-machines {
+  margin: 0;
+  padding: 0.55rem 0.9rem;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  word-break: break-word;
+}
+
+.confirm-note {
+  margin: 0.9rem 0 0;
+  padding: 0.65rem 0.8rem;
+  border-left: 3px solid var(--info);
+  border-radius: var(--radius);
+  background: var(--info-bg, var(--surface-2));
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.confirm-note.is-immediate { border-left-color: var(--success); }
+
+/* A table row that opens a record. The pointer is the only affordance a
+   table row gets, so it has to be there. */
+.table tbody tr.is-clickable { cursor: pointer; }
+
+/* --- energy ranking list --------------------------------------------- */
+.energy-list {
+  margin-top: 0.9rem;
+  border-top: 1px solid var(--border);
+}
+
+.energy-row {
+  display: grid;
+  grid-template-columns: 28px 1fr auto auto;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.55rem 0.2rem;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.energy-row:last-child { border-bottom: none; }
+.energy-row:hover { background: var(--surface-2); }
+
+.energy-rank {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--burgundy-050);
+  color: var(--burgundy-700);
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.energy-name { font-weight: 650; font-size: 0.9rem; }
+.energy-kwh {
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+.energy-cost {
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* =====================================================================
+   The SMARTLAB mark
+   =====================================================================
+   One class covers both forms — the logo image and the lettered fallback
+   — so a caller never has to know which one it rendered. The image is a
+   circular seal, so it is not given a background or a radius of its own.
+   ===================================================================== */
+
+.sl-logo {
+  flex-shrink: 0;
+  object-fit: contain;
+  display: block;
+}
+
+/* The fallback: a lettered tile in the palette, for when the logo file
+   is not in place. Only a <span> ever matches, never the <img>. */
+span.sl-logo {
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--ivory);
+  color: var(--burgundy-900);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+/* In the burgundy sidebar the lettered tile is ivory on burgundy; on the
+   light topbar and the auth screens it is the other way round. */
+span.topbar-brand.sl-logo,
+span.auth-brand-mark.sl-logo {
+  background: var(--burgundy);
+  color: var(--ivory);
+}
+
+/* The sign-in mark is the way through to the administrator portal, so it
+   has to look like something you can press. */
+.auth-brand-mark { cursor: pointer; }
