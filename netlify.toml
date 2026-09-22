@@ -1,7 +1,8 @@
 # Netlify build for the SMARTLAB front end.
 #
-# `base` is this directory, so Netlify installs and builds here rather than
-# at the repository root, where there is no front end to build.
+# This file must sit at the repository root: that is where Netlify looks
+# for it. `base` then points at the sub-directory holding the front end,
+# and every other path here stays relative to the root.
 
 [build]
   base    = "frontend"
