@@ -8,9 +8,9 @@ import axios from 'axios';
  * works unchanged from this computer (localhost) and from a phone on the
  * same Wi-Fi (192.168.x.x) without anyone editing a config file.
  */
+const CONFIGURED = import.meta.env.VITE_API_URL;
 const BASE_URL =
-  import.meta.env.VITE_API_URL ||
-  `${window.location.protocol}//${window.location.hostname}:5000/api`;
+  CONFIGURED || `${window.location.protocol}//${window.location.hostname}:5000/api`;
 const TOKEN_KEY = 'smartlab_token';
 const PORTAL_KEY = 'smartlab_portal';
 
@@ -61,7 +61,15 @@ api.interceptors.response.use(
 
     if (!error.response) {
       return Promise.reject(
-        new Error('Cannot reach the SMARTLAB server. Check that the API is running on port 5000.')
+        new Error(
+          CONFIGURED
+            ? `Cannot reach the SMARTLAB server at ${BASE_URL}. It may be starting up — a free service sleeps after 15 minutes idle and takes about a minute to wake.`
+            : // No VITE_API_URL was compiled in, so the app is guessing at
+              // port 5000 on its own host. On a deployed site that is never
+              // right, and saying "check port 5000" sends somebody looking
+              // in the wrong place entirely.
+              'This site was built without VITE_API_URL, so it does not know where the API is. Set it in the hosting configuration and redeploy.'
+        )
       );
     }
 
