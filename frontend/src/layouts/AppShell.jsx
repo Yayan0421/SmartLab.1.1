@@ -12,8 +12,14 @@ import { ROLE_LABEL } from '../utils/format.js';
  * AdminLayout, FacultyLayout and StudentLayout are thin wrappers that pass
  * their own nav items, so the chrome (sidebar, topbar, notifications,
  * mobile behaviour) has a single implementation.
+ *
+ * `bottomNav` puts the destinations along the bottom of a phone screen,
+ * where a thumb reaches them, instead of behind a drawer. Student and
+ * faculty use it: five destinations each, which is what a tab bar holds.
+ * Admin does not — it has more, in groups, and no honest way to fit them.
+ * On a laptop the bar is not rendered at all and nothing changes.
  */
-export default function AppShell({ navItems, roleLabel }) {
+export default function AppShell({ navItems, roleLabel, bottomNav = false }) {
   const { user, logout } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
@@ -39,7 +45,7 @@ export default function AppShell({ navItems, roleLabel }) {
   }
 
   return (
-    <div className="shell">
+    <div className={`shell ${bottomNav ? 'has-tabbar' : ''}`}>
       <aside className={`sidebar ${sidebarOpen ? 'is-open' : ''}`}>
         <div className="sidebar-brand">
           <span className="brand-mark" aria-hidden="true">SL</span>
@@ -119,6 +125,24 @@ export default function AppShell({ navItems, roleLabel }) {
           <Outlet />
         </main>
       </div>
+
+      {bottomNav && (
+        <nav className="tabbar" aria-label="Main navigation">
+          {navItems
+            .filter((item) => !item.group)
+            .map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) => `tab-link ${isActive ? 'is-active' : ''}`}
+                end={item.end}
+              >
+                <span className="tab-icon" aria-hidden="true">{item.icon}</span>
+                <span className="tab-label">{item.tabLabel ?? item.label}</span>
+              </NavLink>
+            ))}
+        </nav>
+      )}
     </div>
   );
 }

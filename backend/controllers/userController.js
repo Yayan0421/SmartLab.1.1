@@ -6,6 +6,7 @@ import { hashPassword, generateTempPassword } from '../utils/password.js';
 import { recordAudit } from '../services/auditService.js';
 import { generateQrCode, roleNeedsQrCode } from '../utils/qrCode.js';
 import { PUBLIC_FIELDS } from '../utils/userFields.js';
+import { labToday } from '../utils/labTime.js';
 
 /** GET /api/users — admin only, paginated and filterable. */
 export const listUsers = asyncHandler(async (req, res) => {
@@ -96,7 +97,7 @@ export const lookupByQrCode = asyncHandler(async (req, res) => {
   if (error) throw ApiError.internal();
   if (!user) throw ApiError.notFound('No account matches that card.');
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = labToday();
   const { data: bookings } = await supabase
     .from(TABLES.bookings)
     .select('id, booking_date, start_time, end_time, status, subject, computer:computers ( name )')

@@ -3,6 +3,7 @@ import ApiError from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { getPagination, paginated } from '../utils/pagination.js';
 import { getSetting } from '../services/settingsService.js';
+import { labToday } from '../utils/labTime.js';
 
 const startOfToday = () => {
   const d = new Date();
@@ -39,10 +40,12 @@ function bucketReadings(readings, bucket) {
 
   for (const row of readings) {
     const at = new Date(row.recorded_at);
+    // Bucketed in laboratory time so a "day" on the chart is the day the
+    // laboratory actually had, not a UTC one shifted by the offset.
     const key =
       bucket === 'hour'
-        ? `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')} ${String(at.getHours()).padStart(2, '0')}:00`
-        : at.toISOString().slice(0, 10);
+        ? `${labToday(at)} ${String(at.getHours()).padStart(2, '0')}:00`
+        : labToday(at);
 
     const entry = buckets.get(key) || { label: key, energy_kwh: 0, power_watt: 0, samples: 0 };
     entry.energy_kwh += Number(row.energy_kwh) || 0;

@@ -4,6 +4,8 @@ import computerService from '../../services/computerService.js';
 import useFetch from '../../hooks/useFetch.js';
 import useRefreshOnFocus from '../../hooks/useRefreshOnFocus.js';
 import useDebounce from '../../hooks/useDebounce.js';
+import adminService from '../../services/adminService.js';
+import BookingGroups from './BookingGroups.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
 import StatCard from '../../components/StatCard.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
@@ -24,6 +26,9 @@ const STATUSES = ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED', 'COMPLETED', '
 
 export default function AdminBookings() {
   const toast = useToast();
+  // Grouped first: one row per reservation is what an administrator is
+  // actually deciding on.
+  const [tab, setTab] = useState('groups');
 
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
@@ -153,6 +158,37 @@ export default function AdminBookings() {
       )}
 
       <div className="card">
+        <div className="toolbar" style={{ paddingBottom: 0 }}>
+          <div className="tabs" style={{ border: 'none', flex: 1 }}>
+            <button
+              type="button"
+              className={`tab ${tab === 'groups' ? 'is-active' : ''}`}
+              onClick={() => setTab('groups')}
+            >
+              Bookings
+            </button>
+            <button
+              type="button"
+              className={`tab ${tab === 'bookings' ? 'is-active' : ''}`}
+              onClick={() => setTab('bookings')}
+            >
+              Every computer
+            </button>
+            <button
+              type="button"
+              className={`tab ${tab === 'checkins' ? 'is-active' : ''}`}
+              onClick={() => setTab('checkins')}
+            >
+              Kiosk check-ins
+            </button>
+          </div>
+        </div>
+
+        {tab === 'groups' && <BookingGroups />}
+        {tab === 'checkins' && <CheckIns />}
+
+        {tab === 'bookings' && (
+        <>
         <div className="toolbar">
           <input
             className="input search"
@@ -324,6 +360,8 @@ export default function AdminBookings() {
             <Pagination pagination={data?.pagination} onPageChange={setPage} label="bookings" />
           </>
         )}
+        </>
+        )}
       </div>
 
       {/* Decision dialog: approve and reject accept an optional note that is
@@ -434,6 +472,138 @@ export default function AdminBookings() {
           </div>
         )}
       </Modal>
+    </>
+  );
+}
+
+/**
+ * Receipts issued at the kiosk: who actually turned up, when, and on which
+ * machine. A booking says what was promised; this says what happened.
+ */
+function CheckIns() {
+  const [page, setPage] = useState(1);
+  const [date, setDate] = useState('');
+  const [search, setSearch] = useState('');
+  const debounced = useDebounce(search);
+
+  const { data, loading, error, refetch } = useFetch(
+    () =>
+      adminService.receipts({
+        page,
+        limit: 20,
+        date: date || undefined,
+        search: debounced || undefined,
+      }),
+    [page, date, debounced]
+  );
+
+  const rows = data?.data ?? [];
+
+  return (
+    <>
+      <div className="toolbar">
+        <input
+          className="input search"
+          type="search"
+          placeholder="Search receipt number…"
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+          aria-label="Search receipts"
+        />
+        <input
+          type="date"
+          className="input"
+          value={date}
+          onChange={(e) => {
+            setDate(e.target.value);
+            setPage(1);
+          }}
+          aria-label="Filter by date"
+        />
+        {(search || date) && (
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => {
+              setSearch('');
+              setDate('');
+              setPage(1);
+            }}
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
+      {loading && rows.length === 0 ? (
+        <Spinner label="Loading check-ins…" />
+      ) : error ? (
+        <ErrorState message={error} onRetry={refetch} />
+      ) : rows.length === 0 ? (
+        <EmptyState
+          icon="🧾"
+          title="No check-ins yet"
+          message="Receipts appear here when students check in at the kiosk."
+        />
+      ) : (
+        <>
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Receipt</th>
+                  <th>Student</th>
+                  <th>Computer</th>
+                  <th>Booked</th>
+                  <th>Checked in</th>
+                  <th>Photo</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.id}>
+                    <td className="mono small">{row.receipt_no}</td>
+                    <td>
+                      <strong>{row.user?.full_name}</strong>
+                      <div className="small muted">{row.user?.course || row.user?.department}</div>
+                    </td>
+                    <td>{row.computer?.name}</td>
+                    <td className="nowrap small">
+                      {formatDate(row.booking_date)}
+                      <div className="muted">
+                        {formatTimeRange(row.start_time, row.end_time)}
+                      </div>
+                    </td>
+                    <td className="nowrap small">{formatDateTime(row.checked_in_at)}</td>
+                    <td>
+                      {row.check_in_photo_url ? (
+                        <a href={row.check_in_photo_url} target="_blank" rel="noreferrer">
+                          <img
+                            src={row.check_in_photo_url}
+                            alt=""
+                            style={{ width: 44, height: 33, objectFit: 'cover', borderRadius: 6 }}
+                          />
+                        </a>
+                      ) : (
+                        <span className="small muted">—</span>
+                      )}
+                    </td>
+                    <td>
+                      <StatusBadge value={row.status} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <Pagination pagination={data?.pagination} onPageChange={setPage} label="check-ins" />
+        </>
+      )}
     </>
   );
 }

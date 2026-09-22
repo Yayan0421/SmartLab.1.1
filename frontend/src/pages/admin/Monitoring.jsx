@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import computerService from '../../services/computerService.js';
+import controlService from '../../services/controlService.js';
 import useFetch from '../../hooks/useFetch.js';
 import usePolling from '../../hooks/usePolling.js';
 import StatCard from '../../components/StatCard.jsx';
@@ -10,6 +11,7 @@ import ErrorState from '../../components/ErrorState.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Modal from '../../components/Modal.jsx';
 import { TrendLineChart } from '../../components/charts.jsx';
+import ControlPanel from '../../components/ControlPanel.jsx';
 import { formatUptime, meterTone, timeAgo } from '../../utils/format.js';
 
 const REFRESH_MS = 15_000;
@@ -25,11 +27,25 @@ const REFRESH_MS = 15_000;
 export default function AdminMonitoring() {
   const [detailId, setDetailId] = useState(null);
   const [onlyProblems, setOnlyProblems] = useState(false);
+  const [view, setView] = useState('screens');
 
   const { data, loading, error, refetch } = useFetch(() => computerService.monitoring(), []);
-  usePolling(refetch, REFRESH_MS);
+
+  // Screens refresh faster than telemetry: a still image that lags by 15s
+  // is not much use for seeing what somebody is doing right now.
+  const { data: screenData, refetch: refetchScreens } = useFetch(
+    () => controlService.screens(),
+    []
+  );
+
+  usePolling(() => {
+    refetch();
+    refetchScreens();
+  }, REFRESH_MS);
 
   const payload = data?.data;
+  // Keyed by computer id by the API, so each tile looks its own up directly.
+  const screens = screenData?.data ?? {};
 
   if (loading && !payload) return <Spinner label="Connecting to monitoring…" />;
   if (error) return <ErrorState message={error} onRetry={refetch} />;
@@ -50,6 +66,23 @@ export default function AdminMonitoring() {
           </p>
         </div>
         <div className="row">
+          <div className="tabs" style={{ border: 'none' }}>
+            <button
+              type="button"
+              className={`tab ${view === 'screens' ? 'is-active' : ''}`}
+              onClick={() => setView('screens')}
+            >
+              Screens
+            </button>
+            <button
+              type="button"
+              className={`tab ${view === 'stats' ? 'is-active' : ''}`}
+              onClick={() => setView('stats')}
+            >
+              Telemetry
+            </button>
+          </div>
+
           <button
             type="button"
             className={`btn btn-sm ${onlyProblems ? 'btn-primary' : 'btn-secondary'}`}
@@ -89,7 +122,50 @@ export default function AdminMonitoring() {
         />
       </div>
 
-      {visible.length === 0 ? (
+      {view === 'screens' && visible.length > 0 && (
+        <div className="screen-wall">
+          {visible.map((computer) => {
+            const shot = screens[computer.id];
+            return (
+              <article key={computer.id} className={`screen-tile state-${computer.status}`}>
+                <button
+                  type="button"
+                  className="screen-frame"
+                  onClick={() => setDetailId(computer.id)}
+                  title="Open this workstation"
+                >
+                  {shot ? (
+                    <img src={shot.image_url} alt={`Screen of ${computer.name}`} loading="lazy" />
+                  ) : (
+                    <span className="screen-none">
+                      {computer.is_online ? 'Waiting for a capture…' : 'Offline'}
+                    </span>
+                  )}
+
+                  {computer.is_locked && (
+                    <span className="screen-locked" aria-hidden="true">🔒 Frozen</span>
+                  )}
+                </button>
+
+                <div className="screen-meta">
+                  <div className="row-between">
+                    <strong>{computer.name}</strong>
+                    <StatusBadge value={computer.status} />
+                  </div>
+                  <div className="small muted truncate">
+                    {computer.logged_in_user || computer.current_user?.full_name || 'Nobody signed in'}
+                    {shot ? ` · ${timeAgo(shot.captured_at)}` : ''}
+                  </div>
+                </div>
+
+                <ControlPanel computer={computer} onDone={refetchScreens} />
+              </article>
+            );
+          })}
+        </div>
+      )}
+
+      {visible.length === 0 && (
         <div className="card">
           <EmptyState
             icon="✓"
@@ -101,7 +177,9 @@ export default function AdminMonitoring() {
             }
           />
         </div>
-      ) : (
+      )}
+
+      {view === 'stats' && visible.length > 0 && (
         <div className="pc-grid">
           {visible.map((computer) => (
             <article

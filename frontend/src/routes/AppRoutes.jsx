@@ -9,6 +9,7 @@ import Login from '../pages/auth/Login.jsx';
 import Register from '../pages/auth/Register.jsx';
 import AdminLogin from '../pages/auth/AdminLogin.jsx';
 import AdminRegister from '../pages/auth/AdminRegister.jsx';
+const Kiosk = lazy(() => import('../pages/kiosk/Kiosk.jsx'));
 
 import AdminLayout from '../layouts/AdminLayout.jsx';
 import FacultyLayout from '../layouts/FacultyLayout.jsx';
@@ -50,6 +51,10 @@ export default function AppRoutes() {
   return (
     <Suspense fallback={<PageFallback />}>
       <Routes>
+        {/* The laboratory kiosk. Deliberately outside the session guards:
+            it is a device with its own key, not a signed-in person. */}
+        <Route path="/kiosk" element={<Kiosk />} />
+
         {/* Public — student and faculty */}
         <Route element={<PublicOnlyRoute />}>
           <Route path="/login" element={<Login />} />

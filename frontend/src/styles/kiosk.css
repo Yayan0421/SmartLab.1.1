@@ -1,0 +1,489 @@
+/* =====================================================================
+   Self-service kiosk
+
+   Built for a touchscreen standing in the laboratory: large targets, high
+   contrast, nothing that needs a mouse. Everything is sized generously
+   because people use it standing up, often in a queue.
+   ===================================================================== */
+
+.kiosk {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background:
+    radial-gradient(900px 500px at 50% -5%, rgba(155, 29, 48, 0.55), transparent 65%),
+    linear-gradient(170deg, var(--burgundy-900) 0%, #2a0810 100%);
+  color: var(--ivory);
+  user-select: none;
+}
+
+.kiosk-screen {
+  width: min(760px, 100%);
+  min-height: min(90vh, 900px);
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(247, 236, 212, 0.16);
+  border-radius: 26px;
+  backdrop-filter: blur(6px);
+  overflow: hidden;
+}
+
+/* --- header ----------------------------------------------------------- */
+.kiosk-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.1rem 1.5rem;
+  border-bottom: 1px solid rgba(247, 236, 212, 0.14);
+}
+
+.kiosk-brand { display: flex; align-items: center; gap: 0.75rem; }
+
+.kiosk-mark {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  background: var(--ivory);
+  color: var(--burgundy-900);
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+
+.kiosk-title { font-size: 1.1rem; font-weight: 750; letter-spacing: -0.01em; }
+.kiosk-sub {
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--taupe-light);
+}
+
+.kiosk-clock { text-align: right; }
+.kiosk-time { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.kiosk-date { font-size: 0.78rem; color: rgba(247, 236, 212, 0.65); }
+
+/* --- body ------------------------------------------------------------- */
+.kiosk-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1.75rem;
+  text-align: center;
+}
+
+.kiosk-h1 {
+  font-size: 2.1rem;
+  font-weight: 750;
+  letter-spacing: -0.025em;
+  margin: 0;
+}
+
+.kiosk-p {
+  font-size: 1.02rem;
+  color: rgba(247, 236, 212, 0.78);
+  margin: 0;
+  max-width: 44ch;
+}
+
+.kiosk-big {
+  font-size: 3.2rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 0.25rem 0;
+}
+
+/* --- camera ----------------------------------------------------------- */
+.kiosk-camera {
+  position: relative;
+  width: min(340px, 70vw);
+  aspect-ratio: 4 / 3;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #120a0d;
+  border: 2px solid rgba(247, 236, 212, 0.2);
+}
+
+.kiosk-camera video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Mirrored: people expect to see themselves as in a mirror. */
+  transform: scaleX(-1);
+}
+
+.kiosk-camera.is-verifying { border-color: var(--burgundy-300); }
+
+/* The frame people aim the card at. */
+.kiosk-reticle {
+  position: absolute;
+  inset: 18%;
+  border: 3px solid rgba(247, 236, 212, 0.75);
+  border-radius: 14px;
+  box-shadow: 0 0 0 999px rgba(20, 6, 10, 0.35);
+  animation: reticle 1.8s ease-in-out infinite;
+}
+
+@keyframes reticle {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+/* --- the person ------------------------------------------------------- */
+.kiosk-person {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  text-align: left;
+}
+
+.kiosk-face {
+  width: 82px;
+  height: 82px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--ivory);
+  flex-shrink: 0;
+}
+
+.kiosk-face-text {
+  display: grid;
+  place-items: center;
+  background: var(--taupe);
+  color: #fff;
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+/* --- today's sessions -------------------------------------------------- */
+.kiosk-sessions {
+  width: 100%;
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.4rem;
+}
+
+.kiosk-session {
+  display: grid;
+  gap: 0.15rem;
+  width: 100%;
+  padding: 1rem 1.15rem;
+  border: 2px solid rgba(247, 236, 212, 0.28);
+  border-radius: 16px;
+  background: rgba(247, 236, 212, 0.08);
+  color: var(--ivory);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.kiosk-session:hover:not(:disabled),
+.kiosk-session:active:not(:disabled) {
+  background: var(--ivory);
+  border-color: var(--ivory);
+  color: var(--burgundy-900);
+  transform: translateY(-1px);
+}
+
+.kiosk-session.is-blocked { opacity: 0.5; cursor: not-allowed; }
+
+.kiosk-session-pc { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; }
+.kiosk-session-meta { font-size: 0.9rem; opacity: 0.85; }
+.kiosk-session-action { font-size: 0.85rem; font-weight: 700; margin-top: 0.2rem; }
+
+/* --- outcomes ---------------------------------------------------------- */
+.kiosk-tick,
+.kiosk-cross {
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  font-size: 3rem;
+  font-weight: 800;
+}
+
+.kiosk-tick { background: var(--success); color: #fff; }
+.kiosk-cross { background: var(--danger); color: #fff; }
+
+.kiosk-receipt-no {
+  padding: 0.5rem 1.1rem;
+  border: 2px dashed rgba(247, 236, 212, 0.45);
+  border-radius: 12px;
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  letter-spacing: 0.08em;
+}
+
+.kiosk-note {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  font-size: 0.95rem;
+}
+
+.kiosk-note.is-warn {
+  background: rgba(178, 106, 5, 0.25);
+  border: 1px solid rgba(236, 212, 164, 0.4);
+}
+
+.kiosk-note.is-error {
+  background: rgba(179, 38, 30, 0.3);
+  border: 1px solid rgba(240, 196, 192, 0.4);
+}
+
+/* --- buttons ----------------------------------------------------------- */
+.kiosk-again,
+.kiosk-go {
+  padding: 0.85rem 2rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--ivory);
+  color: var(--burgundy-900);
+  font-size: 1.05rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.kiosk-cancel {
+  padding: 0.6rem 1.4rem;
+  border: 1px solid rgba(247, 236, 212, 0.35);
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(247, 236, 212, 0.8);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.kiosk-manual { display: flex; gap: 0.5rem; }
+
+.kiosk-input {
+  padding: 0.85rem 1.1rem;
+  border: 2px solid rgba(247, 236, 212, 0.35);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--ivory);
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+  text-align: center;
+  min-width: 260px;
+}
+
+.kiosk-foot {
+  padding: 0.85rem 1.5rem;
+  border-top: 1px solid rgba(247, 236, 212, 0.14);
+  font-size: 0.8rem;
+  color: rgba(247, 236, 212, 0.55);
+  text-align: center;
+}
+
+/* =====================================================================
+   The printed receipt
+
+   Hidden on screen; the print stylesheet hides everything else and shows
+   only this, sized for an 80mm thermal roll.
+   ===================================================================== */
+
+.receipt { display: none; }
+
+@media print {
+  /* A thermal roll is 80mm wide with roughly 72mm printable. Declaring the
+     page as a continuous roll stops the printer feeding a whole sheet. */
+  @page {
+    size: 80mm auto;
+    margin: 3mm;
+  }
+
+  body * { visibility: hidden !important; }
+
+  .receipt,
+  .receipt * {
+    visibility: visible !important;
+  }
+
+  .receipt {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    /* Fills the paper it is given rather than assuming one size. On a roll
+       that is the full width; if the printer only offers A4 or Letter the
+       cap keeps it a receipt-shaped strip instead of stretched text. */
+    width: 100%;
+    max-width: 76mm;
+    margin: 0 auto;
+    color: #000;
+    background: #fff;
+    font-family: 'Courier New', Consolas, monospace;
+    /* Thermal heads are coarse: small type comes out muddy. */
+    font-size: 12px;
+    line-height: 1.5;
+    font-weight: 600;
+  }
+
+  .receipt-head { text-align: center; }
+  .receipt-logo { font-size: 19px; font-weight: 800; letter-spacing: 0.2em; }
+  .receipt-org { font-size: 12px; font-weight: 700; margin-top: 2px; }
+  .receipt-line { font-size: 11px; }
+
+  .receipt-rule {
+    border-top: 1px dashed #000;
+    margin: 6px 0;
+  }
+
+  .receipt-title {
+    text-align: center;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    font-size: 12px;
+  }
+
+  .receipt-no {
+    text-align: center;
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    margin-top: 2px;
+  }
+
+  .receipt-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .receipt-row > span:first-child { flex-shrink: 0; }
+  .receipt-row > span:last-child { text-align: right; word-break: break-word; }
+  .receipt-strong { font-weight: 700; }
+
+  /* The machines in a class booking, wrapped across as many lines as the
+     roll needs rather than truncated — the list is the point of the ticket. */
+  .receipt-machines {
+    font-weight: 700;
+    line-height: 1.35;
+    word-break: break-word;
+    margin: 1px 0 2px;
+  }
+
+  .receipt-foot {
+    text-align: center;
+    font-size: 10.5px;
+    margin-top: 6px;
+  }
+
+  /* Thermal printing is one colour: anything grey comes out patchy, and
+     browsers otherwise try to save "ink" by lightening. */
+  .receipt,
+  .receipt * {
+    color: #000 !important;
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* =====================================================================
+   Phone and tablet
+
+   An Android handset is a perfectly good scanner: it has a camera, a
+   touchscreen and a speaker. The layout drops the fixed panel and uses the
+   whole screen, with the camera taking the space it needs.
+   ===================================================================== */
+
+@media (max-width: 640px), (max-height: 560px) {
+  .kiosk {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .kiosk-screen {
+    width: 100%;
+    min-height: 100vh;
+    /* Keeps the header and footer clear of notches and gesture bars. */
+    padding: env(safe-area-inset-top, 0) 0 env(safe-area-inset-bottom, 0);
+    border: none;
+    border-radius: 0;
+  }
+
+  .kiosk-head { padding: 0.75rem 1rem; }
+  .kiosk-mark { width: 38px; height: 38px; font-size: 0.9rem; }
+  .kiosk-title { font-size: 0.95rem; }
+  .kiosk-sub { font-size: 0.62rem; }
+  .kiosk-time { font-size: 1.15rem; }
+  .kiosk-date { font-size: 0.68rem; }
+
+  .kiosk-body { padding: 1.1rem 1rem; gap: 0.8rem; }
+
+  .kiosk-h1 { font-size: 1.5rem; }
+  .kiosk-p { font-size: 0.92rem; }
+  .kiosk-big { font-size: 2.3rem; }
+
+  /* The camera is the point of the page on a phone, so give it the width. */
+  .kiosk-camera { width: 100%; max-width: 420px; }
+
+  .kiosk-person { flex-direction: column; text-align: center; gap: 0.6rem; }
+  .kiosk-face { width: 64px; height: 64px; }
+
+  .kiosk-session { padding: 0.85rem 1rem; }
+  .kiosk-session-pc { font-size: 1.25rem; }
+
+  .kiosk-tick,
+  .kiosk-cross { width: 74px; height: 74px; font-size: 2.3rem; }
+
+  .kiosk-input { min-width: 0; width: 100%; font-size: 0.95rem; }
+  .kiosk-manual { width: 100%; }
+
+  .kiosk-foot { font-size: 0.72rem; padding: 0.7rem 1rem; }
+}
+
+/* Landscape on a phone is short: shrink the camera so the buttons still fit. */
+@media (max-height: 480px) and (orientation: landscape) {
+  .kiosk-camera { width: min(240px, 40vw); }
+  .kiosk-h1 { font-size: 1.25rem; }
+  .kiosk-body { padding: 0.75rem 1rem; }
+}
+
+/* A rear camera is not a mirror: show it the right way round. */
+.kiosk-camera.is-rear video { transform: none; }
+
+/* --- scanner target (terminals with a dedicated scanner, no camera) ---- */
+.kiosk-target {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(300px, 70vw);
+  aspect-ratio: 4 / 3;
+  border: 3px dashed rgba(247, 236, 212, 0.35);
+  border-radius: 20px;
+  background: rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.kiosk-target-icon {
+  font-size: 3.6rem;
+  color: rgba(247, 236, 212, 0.5);
+}
+
+/* A sweeping line, so an idle kiosk looks alive and ready. */
+.kiosk-target-beam {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, transparent, var(--burgundy-300), transparent);
+  animation: beam 2.2s ease-in-out infinite;
+}
+
+@keyframes beam {
+  0%, 100% { transform: translateY(-46px); opacity: 0.35; }
+  50% { transform: translateY(46px); opacity: 1; }
+}

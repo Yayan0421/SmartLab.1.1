@@ -38,7 +38,13 @@ export const env = {
   // Gate for the administrator signup portal. Empty disables admin
   // self-registration entirely, which is the safe default.
   adminSignupCode: process.env.ADMIN_SIGNUP_CODE || '',
+  // The self-service kiosk authenticates with this. Falls back to the agent
+  // key so a single-device setup works without extra configuration.
+  kioskApiKey: process.env.KIOSK_API_KEY || process.env.AGENT_API_KEY || '',
   offlineAfterSeconds: toInt(process.env.OFFLINE_AFTER_SECONDS, 120),
+  // The laboratory's own timezone. Bookings, opening hours and "today" are
+  // all local facts, so they are computed in this zone rather than UTC.
+  labTimezone: process.env.LAB_TIMEZONE || 'Asia/Manila',
 };
 
 export default env;

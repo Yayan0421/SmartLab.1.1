@@ -1,11 +1,12 @@
 import { supabase, TABLES } from '../config/database.js';
 import ApiError from '../utils/ApiError.js';
 import { getSetting } from './settingsService.js';
+import { labToday, labClock, labWeekday, labDaysAhead } from '../utils/labTime.js';
 
 /** States that still hold a slot on a machine. */
 export const ACTIVE_STATES = ['PENDING', 'APPROVED'];
 
-const todayISO = () => new Date().toISOString().slice(0, 10);
+const todayISO = labToday;
 
 function hoursBetween(start, end) {
   const toMinutes = (t) => {
@@ -17,10 +18,7 @@ function hoursBetween(start, end) {
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-/** Weekday of a YYYY-MM-DD string, read in UTC so it cannot drift. */
-function weekdayOf(dateStr) {
-  return new Date(`${dateStr}T00:00:00Z`).getUTCDay();
-}
+const weekdayOf = labWeekday;
 
 /** "07:00" or "07:00:00" -> minutes since midnight. */
 function minutesOf(time) {
@@ -35,11 +33,7 @@ function listDays(days) {
   return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 }
 
-function daysAhead(dateStr) {
-  const target = new Date(`${dateStr}T00:00:00Z`).getTime();
-  const today = new Date(`${todayISO()}T00:00:00Z`).getTime();
-  return Math.round((target - today) / 86_400_000);
-}
+const daysAhead = labDaysAhead;
 
 /**
  * Runs every server-side rule a booking must satisfy before it is written.
@@ -114,12 +108,8 @@ export async function validateBookingRequest({
   }
 
   // If the booking is for today, the slot must not already have ended.
-  if (offset === 0) {
-    const now = new Date();
-    const clock = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
-    if (end_time <= clock) {
-      throw ApiError.badRequest('That time slot has already passed.');
-    }
+  if (offset === 0 && end_time <= labClock()) {
+    throw ApiError.badRequest('That time slot has already passed.');
   }
 
   // 9. No conflicting booking on the same machine.
@@ -259,8 +249,7 @@ export function resolveInitialStatus(role, policy) {
  */
 export async function sweepStaleBookings() {
   const today = todayISO();
-  const now = new Date();
-  const clock = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
+  const clock = labClock();
 
   const { error: completedError } = await supabase
     .from(TABLES.bookings)

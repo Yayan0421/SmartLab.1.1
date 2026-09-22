@@ -1,3 +1,7 @@
+import fs from 'node:fs';
+import http from 'node:http';
+import https from 'node:https';
+import path from 'node:path';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -11,6 +15,8 @@ import apiRoutes from './routes/index.js';
 import { notFoundHandler, errorHandler } from './middleware/errorMiddleware.js';
 import { sweepStaleBookings } from './services/bookingService.js';
 import { markStaleComputersOffline } from './controllers/monitoringController.js';
+import { expireStaleCommands } from './services/commandService.js';
+import { expireNoShows } from './controllers/kioskController.js';
 
 const app = express();
 
@@ -73,6 +79,8 @@ function startBackgroundJobs() {
   const runSweep = () => {
     sweepStaleBookings().catch((e) => console.error('[sweep]', e.message));
     markStaleComputersOffline().catch((e) => console.error('[offline-sweep]', e.message));
+    expireStaleCommands().catch((e) => console.error('[command-sweep]', e.message));
+    expireNoShows().catch((e) => console.error('[no-show-sweep]', e.message));
   };
   runSweep();
   return setInterval(runSweep, 60_000);
@@ -89,10 +97,37 @@ async function start() {
 
   const timer = startBackgroundJobs();
 
-  const server = app.listen(env.port, () => {
-    console.log(`\n  SMARTLAB API listening on http://localhost:${env.port}/api`);
+  /**
+   * HTTPS turns on by itself once certs/ exists.
+   *
+   * Browsers only allow camera access on a secure origin, so the kiosk
+   * cannot scan from a phone over the network without it. Create the
+   * certificate with `npm run cert`; delete certs/ to go back to http.
+   *
+   * The certificate is for development on a local network. A deployed
+   * server should sit behind a real one.
+   */
+  const certDir = path.resolve(process.cwd(), '..', 'certs');
+  const keyPath = path.join(certDir, 'key.pem');
+  const certPath = path.join(certDir, 'cert.pem');
+  const useHttps = fs.existsSync(keyPath) && fs.existsSync(certPath);
+  const scheme = useHttps ? 'https' : 'http';
+
+  const server = useHttps
+    ? https.createServer(
+        { key: fs.readFileSync(keyPath), cert: fs.readFileSync(certPath) },
+        app
+      )
+    : http.createServer(app);
+
+  server.listen(env.port, () => {
+    console.log(`\n  SMARTLAB API listening on ${scheme}://localhost:${env.port}/api`);
     console.log(`  Environment: ${env.nodeEnv}`);
-    console.log(`  Allowed origins: ${env.corsOrigins.join(', ')}\n`);
+    console.log(`  Allowed origins: ${env.corsOrigins.join(', ')}`);
+    if (useHttps) {
+      console.log('  HTTPS: on (self-signed — accept the warning once per device)');
+    }
+    console.log('');
   });
 
   const shutdown = (signal) => {

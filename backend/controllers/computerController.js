@@ -4,6 +4,7 @@ import asyncHandler from '../utils/asyncHandler.js';
 import { getPagination, paginated } from '../utils/pagination.js';
 import { recordAudit } from '../services/auditService.js';
 import env from '../config/env.js';
+import { labToday } from '../utils/labTime.js';
 
 const COMPUTER_SELECT = `
   id, computer_number, name, laboratory_id, ip_address, operating_system, specs,
@@ -102,7 +103,7 @@ export const getComputer = asyncHandler(async (req, res) => {
   if (error) throw ApiError.internal();
   if (!data) throw ApiError.notFound('That computer could not be found.');
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = labToday();
   const { data: bookings } = await supabase
     .from(TABLES.bookings)
     .select('id, booking_date, start_time, end_time, status, purpose, user:users ( id, full_name, role )')

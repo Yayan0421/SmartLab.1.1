@@ -147,6 +147,9 @@ create table if not exists bookings (
   end_time       time not null,
   purpose        text not null default '',
   subject        text,
+  -- Set when several machines are reserved in one action, so the rows can
+  -- be shown and approved as a single booking.
+  batch_id       uuid,
   status         booking_state not null default 'PENDING',
   approved_by    uuid references users (id) on delete set null,
   approved_at    timestamptz,
@@ -162,6 +165,7 @@ create index if not exists bookings_computer_idx   on bookings (computer_id);
 create index if not exists bookings_date_idx       on bookings (booking_date desc);
 create index if not exists bookings_status_idx     on bookings (status);
 create index if not exists bookings_subject_idx    on bookings (subject);
+create index if not exists bookings_batch_idx      on bookings (batch_id);
 create index if not exists bookings_created_at_idx on bookings (created_at desc);
 -- the conflict lookup: same machine, same day, active states
 create index if not exists bookings_conflict_idx   on bookings (computer_id, booking_date, status);

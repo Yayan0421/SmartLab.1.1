@@ -294,6 +294,202 @@ export default function BookingWorkspace() {
         </div>
       </div>
 
+      {/*
+        The phone's booking panel.
+
+        The desktop layout is a form beside a thirty-column timetable. That
+        grid cannot survive a 390px screen — `width: 100%` makes it squeeze
+        to about eleven pixels a column rather than scroll — and a form of
+        stacked dropdowns beneath it is a web page, not an app.
+
+        So the phone gets its own panel: the four choices as rows of chips,
+        each showing what it costs you. Day, hour, machines, details. The
+        desktop markup below is hidden at this width, and this panel is
+        hidden above it, so neither has to compromise for the other.
+      */}
+      <div className="book-mobile">
+        <section className="bm-step">
+          <h2 className="bm-label">Day</h2>
+          <div className="bm-chips bm-scroll">
+            {week.map((day) => (
+              <button
+                key={day.iso}
+                type="button"
+                className={`bm-chip bm-day ${date === day.iso ? 'is-on' : ''}`}
+                onClick={() => setDate(day.iso)}
+              >
+                <span className="bm-day-name">{day.weekday}</span>
+                <span className="bm-day-date">{day.label}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="bm-step">
+          <h2 className="bm-label">Hour</h2>
+          <div className="bm-chips bm-hours">
+            {timeSlots.map((s, i) => {
+              const past = slotIsPast(s);
+              const held = slotClosedForMe(s);
+              const free = computers.filter((c) => isFree(c, s)).length;
+              const state = past ? 'past' : held ? 'class' : free === 0 ? 'full' : 'open';
+
+              return (
+                <button
+                  key={s.start}
+                  type="button"
+                  className={`bm-chip bm-hour is-${state} ${i === slotIndex ? 'is-on' : ''}`}
+                  disabled={past || held || free === 0}
+                  onClick={() => {
+                    setSlotIndex(i);
+                    setSelected([]);
+                  }}
+                >
+                  <span className="bm-hour-time">
+                    {formatTimeRange(toDbTime(s.start), toDbTime(s.end))}
+                  </span>
+
+                  <span className="bm-hour-free">
+                    {past
+                      ? 'Passed'
+                      : held
+                        ? 'Class reserved'
+                        : free === 0
+                          ? 'Fully booked'
+                          : `${free} computer${free === 1 ? '' : 's'} free`}
+                  </span>
+
+                  {/* How much of the hour is still open, at a glance. */}
+                  <span className="bm-hour-bar" aria-hidden="true">
+                    <i
+                      style={{
+                        width: `${computers.length ? (free / computers.length) * 100 : 0}%`,
+                      }}
+                    />
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="bm-step">
+          <h2 className="bm-label">
+            Computers
+            <span className="bm-hint">
+              {selected.length} of {availableNow.length} free picked
+            </span>
+          </h2>
+
+          {/* Faculty reserve a number of seats for a class; a student holds
+              one machine, so the shortcuts would only be in their way. */}
+          {!isStudent && (
+            <div className="bm-quick">
+              {[5, 10, 20].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  className="bm-quick-btn"
+                  onClick={() => pickByCount(n)}
+                  disabled={submitting || availableNow.length === 0}
+                >
+                  {n}
+                </button>
+              ))}
+              <button
+                type="button"
+                className="bm-quick-btn"
+                onClick={() => pickByCount(availableNow.length)}
+                disabled={submitting || availableNow.length === 0}
+              >
+                All {availableNow.length}
+              </button>
+              <button
+                type="button"
+                className="bm-quick-btn is-ghost"
+                onClick={() => setSelected([])}
+                disabled={submitting || selected.length === 0}
+              >
+                Clear
+              </button>
+            </div>
+          )}
+
+          <div className="bm-pcs">
+            {computers.map((computer) => {
+              const free = isFree(computer, slot) && !slotIsPast(slot);
+              const on = selected.includes(computer.id);
+              const taken = bookingFor(computer.id, slot);
+
+              return (
+                <button
+                  key={computer.id}
+                  type="button"
+                  className={`bm-pc ${on ? 'is-on' : ''} ${free ? '' : 'is-off'} ${taken?.mine ? 'is-mine' : ''}`}
+                  disabled={!free}
+                  onClick={() => toggle(computer)}
+                  title={computer.name}
+                >
+                  {String(computer.computer_number ?? '').padStart(2, '0')}
+                </button>
+              );
+            })}
+          </div>
+
+          {slotClosedForMe(slot) && (
+            <p className="bm-note is-warn">
+              A class has the laboratory this hour. Choose another time.
+            </p>
+          )}
+
+          {isStudent && (
+            <p className={`bm-note ${hoursLeft === 0 ? 'is-warn' : ''}`}>
+              {hoursLeft === 0
+                ? 'You have used your hours for this day.'
+                : `${hoursLeft}h left of your ${policy.student_max_hours_per_day}h today.`}
+            </p>
+          )}
+        </section>
+
+        <section className="bm-step">
+          <h2 className="bm-label">Details</h2>
+
+          <label className="bm-field">
+            <span>Subject</span>
+            <select
+              className="select"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              disabled={submitting}
+            >
+              {LAB_SUBJECTS.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="bm-field">
+            <span>Purpose</span>
+            <select
+              className="select"
+              value={purpose}
+              onChange={(e) => setPurpose(e.target.value)}
+              disabled={submitting}
+            >
+              {BOOKING_PURPOSES.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </label>
+
+          <p className="bm-note">
+            {isStudent
+              ? 'Student bookings are sent to an administrator for approval.'
+              : 'Faculty bookings are confirmed immediately.'}
+          </p>
+        </section>
+      </div>
+
       <div className="book-layout">
         {/* ---------------- booking form ---------------- */}
         <section className="card book-form">
@@ -303,8 +499,8 @@ export default function BookingWorkspace() {
             </h2>
           </div>
 
-          <form className="card-body stack" onSubmit={submit}>
-            <div className="field">
+          <form id="booking-form" className="card-body stack" onSubmit={submit}>
+            <div className="field field-date">
               <label htmlFor="bk-date">Date</label>
               <select
                 id="bk-date"
@@ -321,7 +517,7 @@ export default function BookingWorkspace() {
               </select>
             </div>
 
-            <div className="field">
+            <div className="field field-time">
               <label htmlFor="bk-time">Time</label>
               <select
                 id="bk-time"
@@ -620,7 +816,7 @@ export default function BookingWorkspace() {
       </div>
 
       {/* ---------------- available computers ---------------- */}
-      <section className="card" style={{ marginTop: '1rem' }}>
+      <section className="card book-avail" style={{ marginTop: '1rem' }}>
         <div className="card-header">
           <h2>
             <span className="book-ico" aria-hidden="true">🖥</span> Available Computers
@@ -673,6 +869,42 @@ export default function BookingWorkspace() {
           )}
         </div>
       </section>
+
+      {/*
+        The booking bar, shown only on a phone.
+
+        On a laptop the form and the schedule sit side by side, so the
+        submit button is always in view. On a phone they stack, and by the
+        time somebody has scrolled down to pick machines the button is a
+        screen and a half above them — so it follows, carrying the count
+        with it. `form=` lets it submit the form it is no longer inside.
+      */}
+      <div className="book-bar">
+        <span className="book-bar-count">
+          <strong>{selected.length}</strong>
+          <span className="small muted">
+            {selected.length === 1 ? 'computer' : 'computers'} selected
+          </span>
+        </span>
+
+        <button
+          type="submit"
+          form="booking-form"
+          className="btn btn-primary"
+          disabled={submitting || selected.length === 0}
+        >
+          {submitting
+            ? 'Submitting…'
+            : selected.length > 1
+              ? `Book ${selected.length}`
+              : 'Book'}
+        </button>
+      </div>
+
+      {/* Keeps the last of the machine list clear of the fixed bars. A
+          spacer rather than padding on an ancestor, so it does not depend
+          on :has() being available on whatever phone this runs on. */}
+      <div className="book-bar-spacer" aria-hidden="true" />
     </>
   );
 }

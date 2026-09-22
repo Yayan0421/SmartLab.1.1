@@ -1022,3 +1022,131 @@
 @media (hover: none) {
   .avatar-clear { opacity: 1; }
 }
+
+/* =====================================================================
+   Screen wall (admin monitoring)
+   ===================================================================== */
+
+.screen-wall {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.screen-tile {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--taupe);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.screen-tile.state-AVAILABLE   { border-top-color: var(--success); }
+.screen-tile.state-IN_USE      { border-top-color: var(--info); }
+.screen-tile.state-OFFLINE     { border-top-color: var(--text-subtle); }
+.screen-tile.state-MAINTENANCE { border-top-color: var(--warning); }
+.screen-tile.state-RESERVED    { border-top-color: var(--burgundy); }
+
+/* The capture itself: a fixed 16:9 frame so tiles line up whatever the
+   monitor's aspect ratio. */
+.screen-frame {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  padding: 0;
+  border: none;
+  background: #1b1416;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.screen-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.screen-frame:hover img { opacity: 0.85; }
+
+.screen-none {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: rgba(247, 236, 212, 0.55);
+  font-size: 0.8125rem;
+}
+
+.screen-locked {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(74, 14, 23, 0.72);
+  color: var(--ivory);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.screen-meta {
+  padding: 0.6rem 0.75rem 0.4rem;
+  min-width: 0;
+}
+
+.control-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding: 0.5rem 0.75rem 0.75rem;
+  margin-top: auto;
+}
+
+.control-row .btn { padding: 0.28rem 0.5rem; font-size: 0.75rem; }
+
+/* --- grouped bookings (one reservation, many machines) ---------------- */
+.group-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  font: inherit;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.group-count:hover { border-color: var(--burgundy); color: var(--burgundy); }
+.group-count strong { font-size: 1rem; color: var(--burgundy); }
+
+.group-caret { font-size: 0.7rem; transition: transform 0.15s; }
+.group-caret.is-open { transform: rotate(180deg); }
+
+.group-detail td { background: var(--surface-2); }
+
+.group-machines {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.45rem;
+  padding: 0.35rem 0;
+}
+
+.group-machine {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 0.8125rem;
+}

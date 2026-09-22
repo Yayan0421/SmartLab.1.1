@@ -59,4 +59,22 @@ export function authenticateAgent(req, _res, next) {
   next();
 }
 
-export default { authenticate, authenticateAgent };
+/**
+ * Authenticates the self-service kiosk.
+ *
+ * The kiosk identifies students but is not one, so it carries a device key
+ * rather than a user session. It can only reach the three kiosk endpoints,
+ * and every check-in it makes is written to the audit log.
+ */
+export function authenticateKiosk(req, _res, next) {
+  const key = req.headers['x-kiosk-key'] || req.headers['x-agent-key'];
+  if (!env.kioskApiKey) {
+    return next(ApiError.internal('The kiosk key is not configured on the server.'));
+  }
+  if (!key || key !== env.kioskApiKey) {
+    return next(ApiError.unauthorized('This kiosk is not authorised.'));
+  }
+  next();
+}
+
+export default { authenticate, authenticateAgent, authenticateKiosk };

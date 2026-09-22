@@ -3,8 +3,9 @@ import ApiError from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { getSetting } from '../services/settingsService.js';
 import env from '../config/env.js';
+import { labToday } from '../utils/labTime.js';
 
-const todayISO = () => new Date().toISOString().slice(0, 10);
+const todayISO = labToday;
 
 /**
  * GET /api/dashboard/admin
@@ -65,7 +66,7 @@ export const adminDashboard = asyncHandler(async (_req, res) => {
   const { rate_per_kwh, currency } = await getSetting('energy');
 
   // Seven-day booking activity.
-  const weekAgo = new Date(Date.now() - 6 * 86_400_000).toISOString().slice(0, 10);
+  const weekAgo = labToday(new Date(Date.now() - 6 * 86_400_000));
   const { data: weekBookings } = await supabase
     .from(TABLES.bookings)
     .select('booking_date, status')
@@ -74,7 +75,7 @@ export const adminDashboard = asyncHandler(async (_req, res) => {
 
   const bookingSeries = [];
   for (let i = 6; i >= 0; i -= 1) {
-    const day = new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10);
+    const day = labToday(new Date(Date.now() - i * 86_400_000));
     const rows = (weekBookings ?? []).filter((r) => r.booking_date === day);
     bookingSeries.push({
       date: day,

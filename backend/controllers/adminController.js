@@ -4,6 +4,7 @@ import asyncHandler from '../utils/asyncHandler.js';
 import { getPagination, paginated } from '../utils/pagination.js';
 import { getAllSettings, updateSetting } from '../services/settingsService.js';
 import { recordAudit } from '../services/auditService.js';
+import { labToday } from '../utils/labTime.js';
 
 /** GET /api/admin/audit-logs */
 export const listAuditLogs = asyncHandler(async (req, res) => {
@@ -112,9 +113,8 @@ export const createLaboratory = asyncHandler(async (req, res) => {
  * utilisation and the most active users.
  */
 export const reports = asyncHandler(async (req, res) => {
-  const to = req.query.to || new Date().toISOString().slice(0, 10);
-  const from =
-    req.query.from || new Date(Date.now() - 29 * 86_400_000).toISOString().slice(0, 10);
+  const to = req.query.to || labToday();
+  const from = req.query.from || labToday(new Date(Date.now() - 29 * 86_400_000));
 
   const { data: bookings, error } = await supabase
     .from(TABLES.bookings)

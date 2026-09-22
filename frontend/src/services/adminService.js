@@ -9,6 +9,7 @@ export const adminService = {
   laboratories: () => api.get('/admin/laboratories'),
   createLaboratory: (payload) => api.post('/admin/laboratories', payload),
   reports: (params) => api.get('/admin/reports', { params }),
+  receipts: (params) => api.get('/kiosk/receipts', { params }),
 };
 
 export default adminService;

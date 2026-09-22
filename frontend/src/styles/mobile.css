@@ -1,0 +1,673 @@
+/* =====================================================================
+   SMARTLAB on a phone — student and faculty
+   =====================================================================
+
+   Every rule in this file lives inside a media query, so the laptop and
+   desktop layout is untouched by construction rather than by care: there
+   is no selector here that can match a wide screen.
+
+   The aim is an application rather than a shrunken web page — navigation
+   under the thumb, rows that read as cards, controls big enough to hit —
+   while keeping the same palette, the same components and the same
+   information as the full-size layout.
+
+   Loaded last, so it wins ties against layout.css and components.css.
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   The tab bar
+   ---------------------------------------------------------------------
+   Student and faculty have five destinations each, which is exactly what
+   a bottom bar holds. Where it is shown the drawer is redundant, so the
+   sidebar and its hamburger go: two ways to navigate is one too many,
+   and the drawer is the one that costs a tap.
+
+   Admin keeps the drawer — it has more destinations, in groups, and no
+   honest way to fit them along the bottom.
+   --------------------------------------------------------------------- */
+
+.tabbar { display: none; }
+
+/* The booking page's follow-along submit bar, and the space it needs.
+   Both off on a laptop, where the form and the schedule sit side by side
+   and the submit button never leaves the screen. */
+.book-bar,
+.book-bar-spacer { display: none; }
+
+/* The phone's own booking panel. Hidden on a laptop, which keeps the
+   form-beside-timetable layout that suits the width it has. */
+.book-mobile { display: none; }
+
+@media (max-width: 900px) {
+  .tabbar {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 60;
+    display: flex;
+    justify-content: space-around;
+    align-items: stretch;
+    gap: 2px;
+    padding: 0.3rem 0.3rem calc(0.3rem + env(safe-area-inset-bottom, 0px));
+    background: var(--sidebar-bg);
+    border-top: 1px solid rgba(247, 236, 212, 0.16);
+    /* Lifts the bar off the content it covers, so a list that scrolls
+       under it still reads as being behind something. */
+    box-shadow: 0 -6px 18px rgba(43, 31, 28, 0.22);
+  }
+
+  .tab-link {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    /* 52px keeps the target comfortably above the ~44px minimum even
+       before the label is counted. */
+    min-height: 52px;
+    padding: 0.3rem 0.15rem;
+    border-radius: var(--radius);
+    color: rgba(247, 236, 212, 0.72);
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .tab-link:hover { text-decoration: none; color: var(--ivory); }
+  .tab-link:active { background: rgba(247, 236, 212, 0.1); }
+
+  .tab-link.is-active {
+    background: var(--sidebar-active);
+    color: #fff;
+  }
+
+  .tab-icon {
+    font-size: 1.22rem;
+    line-height: 1;
+  }
+
+  .tab-label {
+    font-size: 0.655rem;
+    font-weight: 650;
+    letter-spacing: 0.01em;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* With the tab bar present, the drawer and its toggle are dead weight. */
+  .shell.has-tabbar .sidebar,
+  .shell.has-tabbar .scrim { display: none; }
+  .shell.has-tabbar .menu-toggle { display: none; }
+
+  /* Room for the bar, so the last row of any list can be reached. */
+  .shell.has-tabbar .content {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* ------------------------------------------------------------------
+     Book a Computer: the submit bar
+     ------------------------------------------------------------------
+     From this width the form, the timetable and the machine list stack
+     into one column — the right shape, but it puts the submit button a
+     screen and a half above somebody who has scrolled down to choose
+     machines. So the button follows them, carrying the count.
+     ------------------------------------------------------------------ */
+  /* The submit bar rides above the tab bar, so both stay reachable. */
+  .book-bar-spacer { display: block; }
+
+  .book-bar {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 55;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.6rem 0.9rem;
+    /* Clears the tab bar itself, plus the phone's home indicator. */
+    margin-bottom: calc(52px + 0.6rem + env(safe-area-inset-bottom, 0px));
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -4px 14px rgba(43, 31, 28, 0.12);
+  }
+
+  .book-bar-count {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+
+  .book-bar-count strong {
+    font-size: 1.25rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .book-bar .btn {
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding-inline: 1.25rem;
+  }
+
+  /* Room for the booking bar above the tab bar the page already allows
+     for, so the last row of the machine list can still be reached. */
+  .book-bar-spacer { height: 72px; }
+
+  /* The in-form button would now be a second way to do the same thing,
+     directly above a bar that never leaves. */
+  .book-form .btn-block[type='submit'] { display: none; }
+
+  /* ------------------------------------------------------------------
+     Topbar
+     ------------------------------------------------------------------
+     The title is already in the tab bar, so the space goes to the things
+     that are not: notifications, the avatar, and a way out. Sign out
+     stays visible — the profile page offers no other route, and hiding
+     it would strand somebody on a phone.
+     ------------------------------------------------------------------ */
+  .topbar {
+    gap: 0.35rem;
+    padding: 0 0.75rem;
+  }
+
+  .shell.has-tabbar .topbar-title {
+    font-size: 1.02rem;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .shell.has-tabbar .topbar .btn-secondary {
+    padding: 0.4rem 0.7rem;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+
+  .shell.has-tabbar .icon-btn {
+    width: 42px;
+    height: 42px;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Phones proper
+   --------------------------------------------------------------------- */
+@media (max-width: 640px) {
+  /* iOS zooms the page when a field with text under 16px takes focus,
+     and never zooms back out. Every input is brought up to 16px. */
+  .input,
+  .select,
+  .textarea,
+  input[type='text'],
+  input[type='email'],
+  input[type='password'],
+  input[type='number'],
+  input[type='date'],
+  input[type='search'],
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  /* Controls stack and fill the width: a row of half-width filters is
+     unusable with a thumb. */
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .toolbar .input,
+  .toolbar .select,
+  .toolbar .search {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .card-header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .card-body { padding: 0.9rem; }
+
+  /* Anything asking for a decision gets a full-width target. */
+  .btn { min-height: 42px; }
+  .btn-sm { min-height: 36px; }
+
+  .pagination {
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem;
+  }
+
+  /* -------------------------------------------------------------------
+     Tables become cards
+     -------------------------------------------------------------------
+     A seven-column table on a 390px screen is either unreadable or a
+     horizontal scroll nobody discovers. Opt-in with `table-cards`, so a
+     table only changes shape where somebody has decided it should —
+     admin's dense tables keep their scroll.
+
+     Each cell carries its heading in data-label, because the header row
+     is gone and a value with no name is not information.
+     ------------------------------------------------------------------- */
+  .table-cards-wrap { overflow-x: visible; }
+
+  .table-cards,
+  .table-cards tbody,
+  .table-cards tr,
+  .table-cards td {
+    display: block;
+    width: 100%;
+  }
+
+  .table-cards thead { display: none; }
+
+  .table-cards tr {
+    margin-bottom: 0.7rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--taupe);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
+
+  .table-cards tbody tr:hover { background: var(--surface); }
+  .table-cards tr:last-child { margin-bottom: 0; }
+
+  .table-cards td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.9rem;
+    /* The JSX sets maxWidth inline to keep desktop columns honest; on a
+       card the value should use the width it has. */
+    max-width: none !important;
+    padding: 0.5rem 0.8rem;
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+  }
+
+  .table-cards td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-subtle);
+    text-align: left;
+  }
+
+  /* A cell with no heading — the actions column — spans the card and
+     puts its button where a thumb expects it. */
+  .table-cards td:not([data-label]) {
+    justify-content: flex-end;
+    background: var(--surface-2);
+  }
+  .table-cards td:not([data-label])::before { content: none; }
+  .table-cards td:not([data-label]):empty { display: none; }
+
+  .table-cards tr td:last-child { border-bottom: none; }
+
+  /* Truncation belongs to a fixed column, not to a card. */
+  .table-cards .truncate {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .table-cards .nowrap { white-space: nowrap; }
+
+  /* The leading cell is the row's subject, so it reads as a heading. */
+  .table-cards td:first-child {
+    background: var(--surface-2);
+    font-size: 0.95rem;
+  }
+  .table-cards td:first-child strong { font-size: 1rem; }
+
+  .page-head { margin-bottom: 0.9rem; }
+  .page-head h1 { font-size: 1.3rem; }
+  .page-head .subtitle { font-size: 0.82rem; }
+
+  /* -------------------------------------------------------------------
+     Modals behave as sheets
+     -------------------------------------------------------------------
+     A centred dialog on a phone leaves a strip of scrim top and bottom
+     and fights the keyboard. Anchoring to the bottom is what a native
+     app does, and it puts the actions nearest the thumb.
+     ------------------------------------------------------------------- */
+  .modal {
+    width: 100%;
+    max-width: none;
+    max-height: 92vh;
+    margin: 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+
+  .modal-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .modal-body {
+    max-height: calc(92vh - 128px);
+    overflow-y: auto;
+  }
+
+  .modal-footer {
+    flex-direction: column-reverse;
+    gap: 0.5rem;
+    padding-bottom: calc(0.9rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .modal-footer .btn { width: 100%; }
+
+  /* -------------------------------------------------------------------
+     Odds and ends
+     ------------------------------------------------------------------- */
+  .qr-card {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  .dropdown-panel {
+    position: fixed;
+    top: calc(var(--topbar-h) + 4px);
+    right: 0.5rem;
+    left: 0.5rem;
+    width: auto;
+    max-height: 70vh;
+  }
+}
+
+/* Very small phones: two stat cards still fit, a 165px machine card does
+   not, and the tab labels start to collide. */
+@media (max-width: 380px) {
+  .pc-grid { grid-template-columns: 1fr; }
+  .tab-label { font-size: 0.6rem; }
+}
+
+/* =====================================================================
+   Book a Computer, on a phone
+   =====================================================================
+
+   The desktop screen is a form beside a thirty-column timetable. Neither
+   half survives a 390px width: the grid is `width: 100%`, so it squeezes
+   to about eleven pixels a column instead of scrolling, and the form
+   below it is a stack of dropdowns that tell you nothing about what is
+   free. Shrinking that produced the screenshot it produced.
+
+   So the phone renders a panel of its own and the desktop one is hidden
+   outright, rather than the two compromising for each other. Four rows
+   of chips — day, hour, machines, details — each showing what it costs.
+   ===================================================================== */
+
+@media (max-width: 900px) {
+  .book-mobile { display: block; }
+
+  /* The desktop layout steps aside rather than being made to fit. */
+  .book-layout,
+  .book-avail { display: none; }
+
+  .bm-step {
+    padding: 0.85rem 0.95rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 0.7rem;
+  }
+
+  .bm-label {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin: 0 0 0.6rem;
+    font-size: 0.72rem;
+    font-weight: 750;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--text-subtle);
+  }
+
+  .bm-hint {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--text-muted);
+  }
+
+  /* --- chips, shared ------------------------------------------------ */
+  .bm-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  /* The days run off the edge rather than wrapping: a row that scrolls
+     reads as "there are more", where a wrapped second row reads as the
+     end of the list. */
+  .bm-scroll {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 0.2rem;
+  }
+
+  .bm-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    min-height: 48px;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    font: inherit;
+    color: var(--text);
+    cursor: pointer;
+    scroll-snap-align: start;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+  }
+
+  .bm-chip.is-on {
+    background: var(--burgundy);
+    border-color: var(--burgundy);
+    color: var(--ivory);
+  }
+
+  .bm-chip:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  /* --- day ---------------------------------------------------------- */
+  .bm-day { flex: 0 0 auto; min-width: 62px; }
+  .bm-day-name { font-size: 0.8rem; font-weight: 700; }
+  .bm-day-date { font-size: 0.7rem; opacity: 0.8; }
+
+  /* --- hour --------------------------------------------------------- */
+  /* Two to a row, not four.
+     
+     Four chips left room for a bare number under a start time, and a bare
+     number is ambiguous — it could be a count of bookings, or a machine
+     number. Half the width buys the full time range and the word the
+     number needed: "29 computers free". A chip that has to be explained
+     by a heading somewhere else is not doing its job. */
+  .bm-hours {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.45rem;
+  }
+
+  .bm-hour {
+    position: relative;
+    align-items: flex-start;
+    gap: 2px;
+    min-height: 62px;
+    padding: 0.5rem 0.7rem 0.65rem;
+    overflow: hidden;
+    text-align: left;
+  }
+
+  .bm-hour-time {
+    font-size: 0.85rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .bm-hour-free {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--success);
+  }
+
+  /* A bar along the foot of the chip: how much of the hour is still open.
+     The words carry the meaning; this is only for the glance. */
+  .bm-hour-bar {
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 3px;
+    background: var(--border);
+  }
+  .bm-hour-bar i {
+    display: block;
+    height: 100%;
+    background: var(--success);
+  }
+
+  .bm-hour.is-on .bm-hour-free { color: var(--ivory); }
+  .bm-hour.is-on .bm-hour-bar { background: rgba(247, 236, 212, 0.3); }
+  .bm-hour.is-on .bm-hour-bar i { background: var(--ivory); }
+
+  .bm-hour.is-full .bm-hour-free,
+  .bm-hour.is-past .bm-hour-free { color: var(--text-subtle); }
+
+  .bm-hour.is-class {
+    border-color: var(--warning);
+    background: var(--warning-bg);
+  }
+  .bm-hour.is-class .bm-hour-free { color: #7a4a05; }
+  .bm-hour.is-class .bm-hour-bar i { background: var(--warning); }
+
+  /* --- machines ------------------------------------------------------ */
+  .bm-quick {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .bm-quick-btn {
+    min-height: 36px;
+    padding: 0.3rem 0.75rem;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-full);
+    background: var(--surface);
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 650;
+    color: var(--burgundy);
+    cursor: pointer;
+  }
+  .bm-quick-btn.is-ghost { border-color: var(--border); color: var(--text-muted); }
+  .bm-quick-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  /* Machine numbers, not names: thirty of them have to be readable and
+     tappable at once, and "PC-" thirty times over is thirty repetitions
+     of something the heading already said. */
+  .bm-pcs {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 0.35rem;
+  }
+
+  .bm-pc {
+    aspect-ratio: 1;
+    min-height: 44px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--success);
+    border-radius: var(--radius);
+    background: var(--surface);
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .bm-pc.is-on {
+    border-color: var(--burgundy);
+    background: var(--burgundy);
+    color: var(--ivory);
+    box-shadow: 0 0 0 2px var(--burgundy-100);
+  }
+
+  .bm-pc.is-off {
+    border-color: var(--border);
+    background: var(--surface-2);
+    color: var(--text-subtle);
+    cursor: not-allowed;
+  }
+
+  .bm-pc.is-mine {
+    border-color: var(--info);
+    background: var(--info);
+    color: #fff;
+  }
+
+  .bm-note {
+    margin: 0.7rem 0 0;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+  .bm-note.is-warn {
+    padding: 0.5rem 0.7rem;
+    border-left: 3px solid var(--warning);
+    border-radius: var(--radius);
+    background: var(--warning-bg);
+    color: #7a4a05;
+  }
+
+  /* --- details ------------------------------------------------------- */
+  .bm-field {
+    display: block;
+    margin-bottom: 0.7rem;
+  }
+  .bm-field:last-of-type { margin-bottom: 0; }
+
+  .bm-field > span {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.78rem;
+    font-weight: 650;
+    color: var(--text-muted);
+  }
+}
+
+/* Below 360px the machine grid drops to five a row so the numbers
+   stay legible. */
+
+@media (max-width: 359px) {
+  .bm-pcs { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}

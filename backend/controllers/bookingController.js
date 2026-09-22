@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { supabase, TABLES } from '../config/database.js';
 import ApiError from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
@@ -10,11 +11,13 @@ import {
   ACTIVE_STATES,
 } from '../services/bookingService.js';
 import { getSetting } from '../services/settingsService.js';
+import { labToday, labClock } from '../utils/labTime.js';
 
 const BOOKING_SELECT = `
-  id, user_id, computer_id, booking_date, start_time, end_time, purpose, subject, status,
+  id, user_id, computer_id, booking_date, start_time, end_time, purpose, subject, batch_id, status,
   approved_by, approved_at, decision_note, cancelled_at, created_at, updated_at,
-  user:users!bookings_user_id_fkey ( id, full_name, email, role, department ),
+  checked_in_at, checked_out_at, receipt_no,
+  user:users!bookings_user_id_fkey ( id, full_name, email, role, department, course ),
   computer:computers ( id, name, computer_number, status, laboratory:laboratories ( id, name ) )
 `;
 
@@ -24,7 +27,7 @@ const flatten = (row) => ({
   computer: Array.isArray(row.computer) ? row.computer[0] : row.computer,
 });
 
-const todayISO = () => new Date().toISOString().slice(0, 10);
+const todayISO = labToday;
 
 /** Shared list builder used by both the admin list and "my bookings". */
 async function queryBookings(req, { forceUserId = null } = {}) {
@@ -147,7 +150,7 @@ export const bookingStats = asyncHandler(async (_req, res) => {
   ]);
 
   // Booking volume for the last 7 days, grouped in JS over a bounded window.
-  const weekAgo = new Date(Date.now() - 6 * 86_400_000).toISOString().slice(0, 10);
+  const weekAgo = labToday(new Date(Date.now() - 6 * 86_400_000));
   const { data: recent } = await supabase
     .from(TABLES.bookings)
     .select('booking_date, status')
@@ -156,7 +159,7 @@ export const bookingStats = asyncHandler(async (_req, res) => {
 
   const series = [];
   for (let i = 6; i >= 0; i -= 1) {
-    const day = new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10);
+    const day = labToday(new Date(Date.now() - i * 86_400_000));
     const rows = (recent ?? []).filter((r) => r.booking_date === day);
     series.push({
       date: day,
@@ -359,9 +362,8 @@ export const cancelBooking = asyncHandler(async (req, res) => {
   // A slot that has already started cannot be cancelled by its owner; an
   // admin still can, to free the machine.
   if (isOwner && req.user.role !== 'admin') {
-    const now = new Date();
     const today = todayISO();
-    const clock = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
+    const clock = labClock();
     if (booking.booking_date < today || (booking.booking_date === today && booking.start_time <= clock)) {
       throw ApiError.conflict('This booking has already started and can no longer be cancelled.');
     }
@@ -538,6 +540,9 @@ export const createBulkBooking = asyncHandler(async (req, res) => {
 
   const status = resolveInitialStatus(req.user.role, policy);
   const now = new Date().toISOString();
+  // One identity for the whole reservation, so 25 machines read as one
+  // booking in the administrator's list.
+  const batchId = randomUUID();
 
   const { data, error } = await supabase
     .from(TABLES.bookings)
@@ -545,6 +550,7 @@ export const createBulkBooking = asyncHandler(async (req, res) => {
       unique.map((computer_id) => ({
         user_id: req.user.id,
         computer_id,
+        batch_id: batchId,
         booking_date,
         start_time,
         end_time,
@@ -586,6 +592,215 @@ export const createBulkBooking = asyncHandler(async (req, res) => {
   });
 
   res.status(201).json({ success: true, data: (data ?? []).map(flatten) });
+});
+
+
+/**
+ * GET /api/bookings/groups
+ *
+ * The administrator's list, with a multi-computer reservation shown as one
+ * entry instead of thirty. Rows sharing a batch_id collapse into a group;
+ * a single booking is a group of one.
+ *
+ * Grouping happens here rather than in SQL because the shape the screen
+ * needs — a parent row with its machines nested — is not a shape Postgres
+ * returns cheaply. The query is bounded by status and date so the set being
+ * grouped stays small.
+ */
+export const listBookingGroups = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 20, status, date_from, date_to, search } = req.query;
+
+  let query = supabase.from(TABLES.bookings).select(BOOKING_SELECT).limit(1000);
+
+  if (status) query = query.eq('status', status);
+  if (date_from) query = query.gte('booking_date', date_from);
+  if (date_to) query = query.lte('booking_date', date_to);
+  if (req.query.user_id) query = query.eq('user_id', req.query.user_id);
+  if (req.query.subject) query = query.eq('subject', req.query.subject);
+  if (search) {
+    const term = `%${String(search).replace(/[%_]/g, '')}%`;
+    query = query.or(`purpose.ilike.${term},subject.ilike.${term}`);
+  }
+
+  const { data, error } = await query
+    .order('booking_date', { ascending: false })
+    .order('start_time', { ascending: true });
+
+  if (error) throw ApiError.internal();
+
+  const groups = new Map();
+
+  for (const row of data ?? []) {
+    const booking = flatten(row);
+    // A booking with no batch is its own group, keyed by its own id.
+    const key = booking.batch_id ?? booking.id;
+
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        batch_id: booking.batch_id,
+        // Kept so single bookings can still be acted on by id.
+        id: booking.id,
+        user: booking.user,
+        booking_date: booking.booking_date,
+        start_time: booking.start_time,
+        end_time: booking.end_time,
+        subject: booking.subject,
+        purpose: booking.purpose,
+        created_at: booking.created_at,
+        decision_note: booking.decision_note,
+        computers: [],
+        statuses: {},
+      });
+    }
+
+    const group = groups.get(key);
+    group.computers.push({
+      booking_id: booking.id,
+      computer: booking.computer,
+      status: booking.status,
+      checked_in_at: booking.checked_in_at ?? null,
+      receipt_no: booking.receipt_no ?? null,
+    });
+    group.statuses[booking.status] = (group.statuses[booking.status] ?? 0) + 1;
+  }
+
+  const list = [...groups.values()].map((group) => {
+    const states = Object.keys(group.statuses);
+    return {
+      ...group,
+      count: group.computers.length,
+      // A group is "mixed" when its machines are not all in the same state,
+      // which happens once somebody cancels one seat of a class booking.
+      status: states.length === 1 ? states[0] : 'MIXED',
+      pending_count: group.statuses.PENDING ?? 0,
+      checked_in_count: group.computers.filter((c) => c.checked_in_at).length,
+    };
+  });
+
+  const start = (Number(page) - 1) * Number(limit);
+  const pageItems = list.slice(start, start + Number(limit));
+
+  res.json({
+    success: true,
+    data: pageItems,
+    pagination: {
+      page: Number(page),
+      limit: Number(limit),
+      total: list.length,
+      totalPages: Math.max(1, Math.ceil(list.length / Number(limit))),
+      hasNext: start + Number(limit) < list.length,
+      hasPrev: Number(page) > 1,
+    },
+  });
+});
+
+/**
+ * PATCH /api/bookings/batch/:batchId/:decision
+ *
+ * Decides a whole class reservation at once. Each machine is still checked
+ * individually — another booking may have taken one of them while this sat
+ * in the queue — so the reply says exactly how many went through.
+ */
+export const decideBatch = asyncHandler(async (req, res) => {
+  const { batchId, decision } = req.params;
+  if (!['approve', 'reject', 'cancel'].includes(decision)) {
+    throw ApiError.badRequest('That is not a decision this system can make.');
+  }
+
+  const allowed = decision === 'cancel' ? ACTIVE_STATES : ['PENDING'];
+
+  const { data: rows, error } = await supabase
+    .from(TABLES.bookings)
+    .select(BOOKING_SELECT)
+    .eq('batch_id', batchId)
+    .in('status', allowed);
+
+  if (error) throw ApiError.internal();
+  if (!rows?.length) {
+    throw ApiError.conflict('There is nothing left to decide in that booking.');
+  }
+
+  const bookings = rows.map(flatten);
+  const now = new Date().toISOString();
+  const note = req.body?.note || null;
+
+  let done = 0;
+  const skipped = [];
+
+  for (const booking of bookings) {
+    if (decision === 'approve') {
+      // Re-check the slot: a machine may have been taken since the request.
+      try {
+        await validateBookingRequest({
+          user: { id: booking.user_id, role: 'admin' },
+          payload: {
+            computer_id: booking.computer_id,
+            booking_date: booking.booking_date,
+            start_time: booking.start_time,
+            end_time: booking.end_time,
+          },
+          excludeBookingId: booking.id,
+          skipUserLimit: true,
+          skipSelfOverlap: true,
+        });
+      } catch (conflict) {
+        skipped.push({ computer: booking.computer?.name, reason: conflict.message });
+        continue;
+      }
+    }
+
+    const patch =
+      decision === 'cancel'
+        ? { status: 'CANCELLED', cancelled_at: now }
+        : {
+            status: decision === 'approve' ? 'APPROVED' : 'REJECTED',
+            approved_by: req.user.id,
+            approved_at: now,
+            decision_note: note,
+          };
+
+    const { data: updated } = await supabase
+      .from(TABLES.bookings)
+      .update(patch)
+      .eq('id', booking.id)
+      .in('status', allowed)
+      .select('id')
+      .maybeSingle();
+
+    if (updated) done += 1;
+  }
+
+  const first = bookings[0];
+
+  await recordAudit(req, {
+    action: `booking.batch_${decision}`,
+    entity: 'bookings',
+    entityId: batchId,
+    details: { count: done, skipped: skipped.length, subject: first.subject },
+  });
+
+  if (done > 0) {
+    const verb =
+      decision === 'approve' ? 'approved' : decision === 'reject' ? 'rejected' : 'cancelled';
+    await notify(first.user_id, {
+      title: `Booking ${verb}`,
+      message:
+        `${done} computer${done === 1 ? '' : 's'} ${verb} for ${first.subject} on ` +
+        `${first.booking_date} at ${first.start_time.slice(0, 5)}.` +
+        (note ? ` Note: ${note}` : ''),
+      type: decision === 'approve' ? 'success' : 'warning',
+    });
+  }
+
+  res.json({
+    success: true,
+    message:
+      skipped.length === 0
+        ? `${done} computer${done === 1 ? '' : 's'} ${decision === 'approve' ? 'approved' : decision === 'reject' ? 'rejected' : 'cancelled'}.`
+        : `${done} done, ${skipped.length} could not be: ${skipped[0].reason}`,
+    data: { done, skipped },
+  });
 });
 
 /** GET /api/bookings/availability?computer_id=&date= — slots already taken. */

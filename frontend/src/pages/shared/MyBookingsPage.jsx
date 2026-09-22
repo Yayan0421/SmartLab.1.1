@@ -142,8 +142,8 @@ export default function MyBookingsPage() {
           />
         ) : (
           <>
-            <div className="table-wrap">
-              <table className="table">
+            <div className="table-wrap table-cards-wrap">
+              <table className="table table-cards">
                 <thead>
                   <tr>
                     <th>Computer</th>
@@ -158,18 +158,18 @@ export default function MyBookingsPage() {
                 <tbody>
                   {bookings.map((booking) => (
                     <tr key={booking.id}>
-                      <td>
+                      <td data-label="Computer">
                         <strong>{booking.computer?.name ?? '—'}</strong>
                         <div className="small muted">{booking.computer?.laboratory?.name ?? ''}</div>
                       </td>
-                      <td className="nowrap">{formatDate(booking.booking_date)}</td>
-                      <td className="nowrap">{formatTimeRange(booking.start_time, booking.end_time)}</td>
-                      <td style={{ maxWidth: 180 }}>
+                      <td className="nowrap" data-label="Date">{formatDate(booking.booking_date)}</td>
+                      <td className="nowrap" data-label="Time">{formatTimeRange(booking.start_time, booking.end_time)}</td>
+                      <td style={{ maxWidth: 180 }} data-label="Subject">
                         <div className="truncate" title={booking.subject}>
                           {booking.subject || '—'}
                         </div>
                       </td>
-                      <td style={{ maxWidth: 220 }}>
+                      <td style={{ maxWidth: 220 }} data-label="Purpose">
                         <div className="truncate" title={booking.purpose}>
                           {booking.purpose || '—'}
                         </div>
@@ -179,7 +179,7 @@ export default function MyBookingsPage() {
                           </div>
                         )}
                       </td>
-                      <td>
+                      <td data-label="Status">
                         <StatusBadge value={booking.status} />
                       </td>
                       <td className="right">

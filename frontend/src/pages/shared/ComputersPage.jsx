@@ -203,8 +203,8 @@ export function ComputerDetailModal({ id, onClose }) {
           <div>
             <div className="section-title">Upcoming bookings</div>
             {computer.upcoming_bookings?.length ? (
-              <div className="table-wrap">
-                <table className="table">
+              <div className="table-wrap table-cards-wrap">
+                <table className="table table-cards">
                   <thead>
                     <tr>
                       <th>Date</th>
@@ -215,9 +215,9 @@ export function ComputerDetailModal({ id, onClose }) {
                   <tbody>
                     {computer.upcoming_bookings.map((item) => (
                       <tr key={item.id}>
-                        <td className="nowrap">{formatDate(item.booking_date)}</td>
-                        <td className="nowrap">{formatTimeRange(item.start_time, item.end_time)}</td>
-                        <td>
+                        <td className="nowrap" data-label="Date">{formatDate(item.booking_date)}</td>
+                        <td className="nowrap" data-label="Time">{formatTimeRange(item.start_time, item.end_time)}</td>
+                        <td data-label="Status">
                           <StatusBadge value={item.status} />
                         </td>
                       </tr>

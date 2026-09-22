@@ -1,0 +1,14 @@
+{
+  "name": "smartlab-agent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SMARTLAB workstation agent - runs on each laboratory PC",
+  "type": "module",
+  "main": "agent.js",
+  "scripts": {
+    "start": "node agent.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

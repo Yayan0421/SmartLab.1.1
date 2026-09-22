@@ -26,6 +26,8 @@ router.patch('/:id/cancel', bookingController.cancelBooking);
 
 // Admin-wide views and decisions.
 router.get('/stats', requireAdmin, bookingController.bookingStats);
+router.get('/groups', requireAdmin, bookingController.listBookingGroups);
+router.patch('/batch/:batchId/:decision', requireAdmin, bookingController.decideBatch);
 router.get('/', requireAdmin, validate(listBookingsQuerySchema, 'query'), bookingController.listBookings);
 router.patch('/:id/approve', requireAdmin, validate(decisionSchema), bookingController.approveBooking);
 router.patch('/:id/reject', requireAdmin, validate(decisionSchema), bookingController.rejectBooking);

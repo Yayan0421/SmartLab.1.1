@@ -2,6 +2,11 @@ import api from './api.js';
 
 export const bookingService = {
   list: (params) => api.get('/bookings', { params }),
+  /** The admin list with multi-computer reservations collapsed into one row. */
+  groups: (params) => api.get('/bookings/groups', { params }),
+  /** Approves, rejects or cancels every machine in one reservation. */
+  decideBatch: (batchId, decision, note) =>
+    api.patch(`/bookings/batch/${batchId}/${decision}`, { note }),
   mine: (params) => api.get('/bookings/my', { params }),
   summary: () => api.get('/bookings/summary'),
   stats: () => api.get('/bookings/stats'),

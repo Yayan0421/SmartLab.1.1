@@ -64,6 +64,25 @@ export function coursesFor(program) {
   return COURSES_BY_PROGRAM[program] ?? [];
 }
 
+/**
+ * The laboratory's timezone.
+ *
+ * A kiosk terminal is often set to whatever timezone it shipped with, and
+ * nobody thinks to change it. Times printed on a receipt or shown on the
+ * kiosk clock must be the laboratory's, not the device's — otherwise a
+ * receipt says a student arrived at 8am when they arrived at 9pm.
+ *
+ * Keep this matching LAB_TIMEZONE in the backend .env.
+ */
+export const LAB_TIMEZONE = 'Asia/Manila';
+
+/** Formats a date in laboratory time, whatever the device is set to. */
+export function labFormat(value, options) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('en-GB', { timeZone: LAB_TIMEZONE, ...options }).format(date);
+}
+
 export const DAY_NAMES = [
   'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday',
 ];

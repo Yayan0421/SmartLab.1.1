@@ -101,8 +101,8 @@ export default function UserDashboard() {
               }
             />
           ) : (
-            <div className="table-wrap">
-              <table className="table">
+            <div className="table-wrap table-cards-wrap">
+              <table className="table table-cards">
                 <thead>
                   <tr>
                     <th>Computer</th>
@@ -114,13 +114,13 @@ export default function UserDashboard() {
                 <tbody>
                   {stats.next_bookings.map((item) => (
                     <tr key={item.id}>
-                      <td>
+                      <td data-label="Computer">
                         <strong>{item.computer?.name ?? '—'}</strong>
                         <div className="small muted">{item.computer?.laboratory?.name ?? ''}</div>
                       </td>
-                      <td className="nowrap">{formatDate(item.booking_date)}</td>
-                      <td className="nowrap">{formatTimeRange(item.start_time, item.end_time)}</td>
-                      <td>
+                      <td className="nowrap" data-label="Date">{formatDate(item.booking_date)}</td>
+                      <td className="nowrap" data-label="Time">{formatTimeRange(item.start_time, item.end_time)}</td>
+                      <td data-label="Status">
                         <StatusBadge value={item.status} />
                       </td>
                     </tr>

@@ -19,6 +19,9 @@ const DEFAULTS = {
     // A faculty reservation takes the room: while it runs, students cannot
     // book any machine in that laboratory.
     faculty_priority: true,
+    // How long after the start time somebody may still check in at the
+    // kiosk. Past this the booking expires and the machine is released.
+    late_grace_minutes: 30,
   },
   energy: { rate_per_kwh: 11.5, currency: 'PHP' },
   general: { site_name: 'SMARTLAB', offline_after_seconds: 120 },
