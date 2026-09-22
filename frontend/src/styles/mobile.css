@@ -172,35 +172,46 @@
      to it opens, so it is one tap further away and no longer competing
      with the page title for room.
      ------------------------------------------------------------------ */
+  /* Burgundy, like the bar at the other end of the screen.
+     
+     A pale header between an ivory page and a burgundy tab bar reads as
+     part of the content it is supposed to sit above. In the palette the
+     two bars are the frame and the page is the thing inside it, which is
+     also what a native app does with its chrome. */
   .shell.has-tabbar .topbar {
     gap: 0.6rem;
     padding: 0 0.85rem;
-    background: var(--surface);
+    background: var(--sidebar-bg);
     backdrop-filter: none;
-    border-bottom: 1px solid var(--border);
+    border-bottom: none;
+    box-shadow: 0 2px 10px rgba(43, 31, 28, 0.18);
   }
 
   .shell.has-tabbar .topbar-signout { display: none; }
 
-  /* The mark, so the header belongs to a product and not just a page. */
+  /* The logo has no transparency — it is a circular seal on a white
+     square — so on burgundy it becomes a white badge rather than a white
+     box. The radius is what turns the one into the other. */
   .topbar-brand {
-    display: grid;
-    place-items: center;
-    width: 34px;
-    height: 34px;
     flex-shrink: 0;
-    border-radius: 9px;
-    background: var(--burgundy);
-    color: var(--ivory);
-    font-size: 0.78rem;
-    font-weight: 800;
-    letter-spacing: -0.02em;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 0 1px rgba(247, 236, 212, 0.35);
+  }
+
+  /* The lettered fallback keeps its rounded-square tile: it is a
+     monogram, not a seal, and a circle would crop the letters. */
+  span.topbar-brand.sl-logo {
+    border-radius: 10px;
+    background: var(--ivory);
+    color: var(--burgundy-900);
   }
 
   .shell.has-tabbar .topbar-title {
-    font-size: 1.02rem;
-    font-weight: 700;
+    font-size: 1.08rem;
+    font-weight: 750;
     letter-spacing: -0.01em;
+    color: var(--ivory);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -209,24 +220,38 @@
   /* The context the sidebar used to give: which role, which product. */
   .shell.has-tabbar .topbar-sub {
     display: block;
-    font-size: 0.68rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
+    font-size: 0.66rem;
+    font-weight: 650;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--text-subtle);
+    color: var(--taupe-light);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .shell.has-tabbar .icon-btn {
+  /* Icons on burgundy: ivory, and a pressed state that reads on it. */
+  .shell.has-tabbar .topbar .icon-btn {
     width: 42px;
     height: 42px;
+    color: rgba(247, 236, 212, 0.88);
+  }
+  .shell.has-tabbar .topbar .icon-btn:hover,
+  .shell.has-tabbar .topbar .icon-btn:active {
+    background: rgba(247, 236, 212, 0.12);
+    color: var(--ivory);
+  }
+
+  /* The unread badge was burgundy on white; on a burgundy bar it has to
+     invert or it disappears into the background. */
+  .shell.has-tabbar .topbar .icon-btn .dot {
+    background: var(--ivory);
+    color: var(--burgundy-900);
   }
 
   /* The avatar reads as a control, not a decoration. */
   .shell.has-tabbar .topbar .avatar {
-    box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--border-strong);
+    box-shadow: 0 0 0 2px rgba(247, 236, 212, 0.55);
   }
 }
 
