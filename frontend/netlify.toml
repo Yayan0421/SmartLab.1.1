@@ -1,0 +1,44 @@
+# Netlify build for the SMARTLAB front end.
+#
+# `base` is this directory, so Netlify installs and builds here rather than
+# at the repository root, where there is no front end to build.
+
+[build]
+  base    = "frontend"
+  command = "npm ci && npm run build"
+  publish = "frontend/dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Client-side routing: the app owns every path, so anything that is not a
+# real file has to return index.html and let the router decide. Without
+# this, opening /student/book directly — or refreshing on it — is a 404,
+# because no such file exists on disk.
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
+
+# Hashed asset names never change contents, so they can be cached for a
+# year. index.html must never be, or a deploy would not reach anyone
+# already carrying the old one.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options        = "DENY"
+    Referrer-Policy        = "strict-origin-when-cross-origin"
+    # The kiosk uses the camera to read a QR code; nothing else needs a
+    # device, so everything else is refused outright.
+    Permissions-Policy     = "camera=(self), microphone=(), geolocation=()"

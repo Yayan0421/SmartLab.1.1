@@ -12,12 +12,50 @@ const BASE_URL =
  * a shared secret for a device standing in a public room, which is why the
  * kiosk endpoints can do nothing except scan a card and start a session.
  */
-const KIOSK_KEY = import.meta.env.VITE_KIOSK_KEY || '';
+const KEY_STORE = 'smartlab.kiosk.key';
+
+/**
+ * The kiosk's device key, which must never reach an ordinary visitor.
+ *
+ * A VITE_ variable is compiled into the bundle every browser downloads, so
+ * setting the key that way publishes it: anyone who opened the site could
+ * check bookings in and read cards. In a deployed build the variable is
+ * left unset and the key is instead stored on the kiosk device itself,
+ * put there once through /kiosk?key=… and kept in localStorage.
+ *
+ * The build-time variable is still honoured because it is convenient on a
+ * closed laboratory network — but it is the fallback, not the source.
+ */
+function kioskKey() {
+  try {
+    const stored = window.localStorage.getItem(KEY_STORE);
+    if (stored) return stored;
+  } catch {
+    // Storage blocked; fall through to the build-time value.
+  }
+  return import.meta.env.VITE_KIOSK_KEY || '';
+}
+
+/** Stores the key on this device. Called once, from the kiosk page. */
+export function rememberKioskKey(key) {
+  try {
+    window.localStorage.setItem(KEY_STORE, key);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 const kiosk = axios.create({
   baseURL: BASE_URL,
-  headers: { 'Content-Type': 'application/json', 'x-kiosk-key': KIOSK_KEY },
+  headers: { 'Content-Type': 'application/json' },
   timeout: 15000,
+});
+
+// Read at request time: the key may be stored after the module loads.
+kiosk.interceptors.request.use((config) => {
+  config.headers['x-kiosk-key'] = kioskKey();
+  return config;
 });
 
 kiosk.interceptors.response.use(

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import jsQR from 'jsqr';
-import kioskService from '../../services/kioskService.js';
+import kioskService, { rememberKioskKey } from '../../services/kioskService.js';
 import Receipt from './Receipt.jsx';
 import { formatTimeRange } from '../../utils/format.js';
 import { labFormat } from '../../utils/labConstants.js';
@@ -23,6 +23,29 @@ import { printViaRawBT } from '../../utils/receiptText.js';
  */
 
 const IDLE_RESET_MS = 25_000;
+
+/**
+ * Takes the device key out of the address bar and onto the device.
+ *
+ * The kiosk is set up once by opening /kiosk?key=… on the terminal. The
+ * key is stored and the parameter removed from the URL immediately, so it
+ * does not sit in the address bar of a machine standing in a public room,
+ * and does not end up in a bookmark or a shoulder-surfed screenshot.
+ */
+function claimKeyFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const key = params.get('key');
+  if (!key) return;
+
+  rememberKioskKey(key);
+  params.delete('key');
+  const query = params.toString();
+  window.history.replaceState(
+    null,
+    '',
+    `${window.location.pathname}${query ? `?${query}` : ''}`
+  );
+}
 
 /**
  * Collapses a class booking into one entry.
@@ -78,6 +101,12 @@ function printSettings() {
 }
 
 export default function Kiosk() {
+  // Before any state, so the first request already carries the key.
+  useState(() => {
+    claimKeyFromUrl();
+    return null;
+  });
+
   const [stage, setStage] = useState('waiting'); // waiting | choosing | done | error
   const [scanned, setScanned] = useState(null);
   const [session, setSession] = useState(null);

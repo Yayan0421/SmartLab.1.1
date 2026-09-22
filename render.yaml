@@ -1,0 +1,66 @@
+# Render blueprint for the SMARTLAB API.
+#
+# Render reads this from the repository root and creates the service, so
+# the settings live with the code rather than in somebody's browser.
+#
+# Values marked sync:false are NOT in this file and never should be: they
+# are secrets, and this file is public. Render prompts for them when the
+# blueprint is applied, and they can be changed later in the dashboard.
+
+services:
+  - type: web
+    name: smartlab-api
+    runtime: node
+    plan: free
+    region: singapore          # nearest to the Philippines of Render's regions
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/health
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      # Render provides PORT and the server already reads it.
+
+      # TLS is terminated by Render before the request reaches this
+      # process. A server that insists on speaking HTTPS to a proxy
+      # expecting HTTP simply never answers, so this stays false.
+      - key: USE_HTTPS
+        value: 'false'
+
+      # The laboratory's own timezone. Every "today", opening hour and
+      # check-in window is judged in it, not in the server's.
+      - key: LAB_TIMEZONE
+        value: Asia/Manila
+
+      # The Netlify site, exactly — scheme and host, no trailing slash.
+      # Set this after the front end is deployed and its URL is known.
+      - key: CORS_ORIGIN
+        sync: false
+
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+
+      # Signs session tokens. Changing it signs everyone out.
+      - key: JWT_SECRET
+        generateValue: true
+
+      # The lab-PC agents authenticate with this.
+      - key: AGENT_API_KEY
+        generateValue: true
+
+      # The kiosk terminal authenticates with this. Kept separate from the
+      # agent key so a kiosk standing in a public room cannot issue
+      # shutdown commands if its key is read off the device.
+      - key: KIOSK_API_KEY
+        generateValue: true
+
+      # Gate for the administrator sign-up portal. Leave it unset to
+      # disable administrator self-registration entirely, which is the
+      # safe default once the first administrator exists.
+      - key: ADMIN_SIGNUP_CODE
+        sync: false

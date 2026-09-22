@@ -435,3 +435,66 @@ export async function expireNoShows() {
     console.log(`[kiosk] expired ${expired.length} no-show booking(s)`);
   }
 }
+
+/**
+ * Releases workstations whose session has finished.
+ *
+ * Check-in marks a machine IN_USE; only an explicit check-out cleared it.
+ * People do not check out — they finish and walk away — so a machine
+ * stayed occupied for ever, and after a few days a laboratory reads as
+ * fully booked while standing empty.
+ *
+ * This closes the session at its own end time rather than inventing one:
+ * the booking said when it finished, and that is the honest record.
+ */
+export async function releaseFinishedSessions() {
+  const today = todayISO();
+  const pad = (n) => String(n).padStart(2, '0');
+  const minutes = nowMinutes();
+  const clock = `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}:00`;
+
+  const { data: finished, error } = await supabase
+    .from(TABLES.bookings)
+    .select('id, user_id, computer_id, booking_date, end_time')
+    .not('checked_in_at', 'is', null)
+    .is('checked_out_at', null)
+    .or(`booking_date.lt.${today},and(booking_date.eq.${today},end_time.lte.${clock})`);
+
+  if (error) {
+    console.error('[kiosk] release sweep failed:', error.message);
+    return;
+  }
+  if (!finished?.length) return;
+
+  // Closed at the end time the booking itself gave, in laboratory time.
+  for (const booking of finished) {
+    await supabase
+      .from(TABLES.bookings)
+      .update({ checked_out_at: `${booking.booking_date}T${booking.end_time}` })
+      .eq('id', booking.id)
+      .is('checked_out_at', null);
+  }
+
+  // A machine is only freed if nothing else currently holds it, and a
+  // machine under maintenance stays under maintenance.
+  const ids = [...new Set(finished.map((b) => b.computer_id))];
+  const { data: stillBusy } = await supabase
+    .from(TABLES.bookings)
+    .select('computer_id')
+    .in('computer_id', ids)
+    .not('checked_in_at', 'is', null)
+    .is('checked_out_at', null);
+
+  const held = new Set((stillBusy ?? []).map((b) => b.computer_id));
+  const free = ids.filter((id) => !held.has(id));
+
+  if (free.length) {
+    await supabase
+      .from(TABLES.computers)
+      .update({ status: 'AVAILABLE', current_user_id: null })
+      .in('id', free)
+      .neq('status', 'MAINTENANCE');
+
+    console.log(`[kiosk] released ${free.length} workstation(s) after their sessions ended`);
+  }
+}

@@ -16,7 +16,7 @@ import { notFoundHandler, errorHandler } from './middleware/errorMiddleware.js';
 import { sweepStaleBookings } from './services/bookingService.js';
 import { markStaleComputersOffline } from './controllers/monitoringController.js';
 import { expireStaleCommands } from './services/commandService.js';
-import { expireNoShows } from './controllers/kioskController.js';
+import { expireNoShows, releaseFinishedSessions } from './controllers/kioskController.js';
 
 const app = express();
 
@@ -67,9 +67,48 @@ app.use(
 
 app.use('/api', apiRoutes);
 
-app.get('/', (_req, res) => {
-  res.json({ success: true, service: 'SMARTLAB API', docs: '/api/health' });
+/**
+ * The built front end, when it is there.
+ *
+ * Serving the app from the same origin as the API turns two deployments
+ * into one and removes CORS from the picture entirely — the browser is no
+ * longer making a cross-origin request. In development the directory does
+ * not exist and Vite serves the app instead, so nothing changes here.
+ */
+const clientDir = path.resolve(process.cwd(), '..', 'frontend', 'dist');
+const hasClient = fs.existsSync(path.join(clientDir, 'index.html'));
+
+if (hasClient) {
+  // Hashed assets never change under the same name, so they can be held
+  // for a year; index.html must not be, or a deploy never reaches anyone.
+  app.use(
+    '/assets',
+    express.static(path.join(clientDir, 'assets'), {
+      immutable: true,
+      maxAge: '1y',
+    })
+  );
+  app.use(express.static(clientDir, { index: false }));
+}
+
+app.get('/', (_req, res, next) => {
+  if (!hasClient) {
+    return res.json({ success: true, service: 'SMARTLAB API', docs: '/api/health' });
+  }
+  return next();
 });
+
+/**
+ * Client-side routing: anything that is not an API call and not a file
+ * gets the app, which then decides what the path means. Scoped away from
+ * /api so a mistyped endpoint still returns a JSON 404 rather than HTML,
+ * which is the difference between a clear error and a confusing one.
+ */
+if (hasClient) {
+  app.get(/^(?!\/api\/).*/, (_req, res) => {
+    res.sendFile(path.join(clientDir, 'index.html'));
+  });
+}
 
 app.use(notFoundHandler);
 app.use(errorHandler);
@@ -81,6 +120,7 @@ function startBackgroundJobs() {
     markStaleComputersOffline().catch((e) => console.error('[offline-sweep]', e.message));
     expireStaleCommands().catch((e) => console.error('[command-sweep]', e.message));
     expireNoShows().catch((e) => console.error('[no-show-sweep]', e.message));
+    releaseFinishedSessions().catch((e) => console.error('[release-sweep]', e.message));
   };
   runSweep();
   return setInterval(runSweep, 60_000);
@@ -110,7 +150,27 @@ async function start() {
   const certDir = path.resolve(process.cwd(), '..', 'certs');
   const keyPath = path.join(certDir, 'key.pem');
   const certPath = path.join(certDir, 'cert.pem');
-  const useHttps = fs.existsSync(keyPath) && fs.existsSync(certPath);
+  const haveCerts = fs.existsSync(keyPath) && fs.existsSync(certPath);
+
+  /**
+   * USE_HTTPS: 'auto' (default), 'true' or 'false'.
+   *
+   * On a hosting platform TLS is terminated before the request reaches
+   * this process, and a server that insists on speaking HTTPS to a proxy
+   * expecting HTTP simply never answers. So 'auto' means "in development
+   * only": a certs/ directory left behind on a deployed machine cannot
+   * silently break it. An on-premises server that really does terminate
+   * its own TLS sets USE_HTTPS=true.
+   */
+  const httpsMode = (process.env.USE_HTTPS || 'auto').toLowerCase();
+  const wantsHttps =
+    httpsMode === 'true' ? true : httpsMode === 'false' ? false : !env.isProduction;
+  const useHttps = haveCerts && wantsHttps;
+
+  if (httpsMode === 'true' && !haveCerts) {
+    console.error('[SMARTLAB] USE_HTTPS=true but certs/ has no key.pem and cert.pem.');
+    process.exit(1);
+  }
   const scheme = useHttps ? 'https' : 'http';
 
   const server = useHttps
