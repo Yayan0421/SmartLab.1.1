@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import http from 'node:http';
 import https from 'node:https';
+import os from 'node:os';
 import path from 'node:path';
 import express from 'express';
 import cors from 'cors';
@@ -180,12 +181,38 @@ async function start() {
       )
     : http.createServer(app);
 
-  server.listen(env.port, () => {
+  /**
+   * Every address on this machine a browser elsewhere could use.
+   *
+   * Listening on all interfaces is the easy half; the hard half is knowing
+   * what to type on the tablet. Printing the LAN address turns that into
+   * reading a line off the console instead of hunting through ipconfig.
+   */
+  const lanAddresses = () =>
+    Object.values(os.networkInterfaces())
+      .flat()
+      .filter((entry) => entry?.family === 'IPv4' && !entry.internal)
+      .map((entry) => entry.address);
+
+  // 0.0.0.0 rather than the default: bound to one interface only, the
+  // server is unreachable from the kiosk tablet on the same Wi-Fi.
+  server.listen(env.port, '0.0.0.0', () => {
     console.log(`\n  SMARTLAB API listening on ${scheme}://localhost:${env.port}/api`);
     console.log(`  Environment: ${env.nodeEnv}`);
     console.log(`  Allowed origins: ${env.corsOrigins.join(', ')}`);
     if (useHttps) {
       console.log('  HTTPS: on (self-signed — accept the warning once per device)');
+    }
+
+    const lan = lanAddresses();
+    if (lan.length) {
+      console.log('\n  On this network:');
+      for (const address of lan) {
+        console.log(`    API   : ${scheme}://${address}:${env.port}/api/health`);
+        console.log(`    Kiosk : ${scheme}://${address}:5173/kiosk`);
+      }
+      console.log('\n  From another device, open the API address once and accept the');
+      console.log('  certificate warning first, or every request from it is refused.');
     }
     console.log('');
   });

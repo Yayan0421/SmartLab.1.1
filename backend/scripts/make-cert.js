@@ -66,9 +66,9 @@ console.log('\n  Certificate written to certs/\n');
 console.log('  Valid for:');
 console.log('    localhost');
 for (const ip of ips) console.log(`    ${ip}`);
-console.log('\n  Now start both servers with HTTPS:');
-console.log('    backend  : npm run dev:https');
-console.log('    frontend : npm run dev:https');
+console.log('\n  Now start both servers - HTTPS switches itself on:');
+console.log('    backend  : npm run dev   (in backend/)');
+console.log('    frontend : npm run dev   (in frontend/)');
 console.log('\n  Then on the phone, open each once and accept the warning:');
 for (const ip of ips.filter((a) => a !== '127.0.0.1')) {
   console.log(`    https://${ip}:5000/api/health`);
