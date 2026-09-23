@@ -131,12 +131,38 @@ export function receiptToText(receipt, width = 48) {
  * unreliable — it needs a live user gesture, and the check-in request
  * outlives it — which is why the frame stays the route there.
  */
+/**
+ * Pulls the kiosk back in front after handing a job to another app.
+ *
+ * Launching RawBT puts RawBT on the screen, and it stays there: the
+ * student sees a print service instead of their receipt, and the next
+ * person finds a terminal that is not the kiosk. Fully can take the
+ * foreground back, and should — the printer is a detail of the kiosk,
+ * not a destination.
+ *
+ * The delay gives Android time to deliver the intent before the
+ * foreground changes under it. Tried twice, because on a slow board the
+ * first attempt can land before RawBT has even appeared.
+ */
+function comeBack() {
+  const pull = () => {
+    try {
+      window.fully?.bringToForeground?.();
+    } catch {
+      /* nothing to be done if the bridge refuses */
+    }
+  };
+  setTimeout(pull, 1200);
+  setTimeout(pull, 3000);
+}
+
 function handOff(url) {
   // 1. Fully Kiosk's own bridge, where it exists.
   try {
     if (typeof window.fully?.startIntent === 'function') {
       window.fully.startIntent(url);
       lastRoute = 'fully.startIntent';
+      comeBack();
       return;
     }
   } catch (error) {
@@ -155,6 +181,7 @@ function handOff(url) {
     if (typeof window.fully?.broadcastIntent === 'function') {
       window.fully.broadcastIntent(url);
       lastRoute = 'fully.broadcastIntent';
+      comeBack();
       return;
     }
   } catch (error) {
