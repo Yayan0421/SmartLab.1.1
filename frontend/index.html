@@ -6,6 +6,22 @@
     <meta name="theme-color" content="#9B1D30" />
     <meta name="description" content="SMARTLAB - Smart Computer Management System" />
     <link rel="icon" type="image/png" href="/img/smartlab-logo.png" />
+
+    <!--
+      Installable, so the kiosk can run fullscreen in Chrome itself.
+
+      Chrome prints to RawBT without complaint; a WebView shell does not,
+      because it never offers its host the chance to intercept the frame
+      carrying the job. Adding the site to the home screen launches it on
+      Chrome's own engine with no address bar — the kiosk appearance
+      wanted, without the browser that breaks printing.
+    -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="SMARTLAB" />
+    <link rel="apple-touch-icon" href="/img/smartlab-logo.png" />
     <title>SMARTLAB</title>
   </head>
   <body>
