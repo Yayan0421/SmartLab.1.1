@@ -143,20 +143,26 @@ function handOff(url) {
     lastRoute = `fully.startIntent threw: ${error.message}`;
   }
 
-  // 2. Inside any other WebView, navigate: the scheme is handed to
-  //    Android and the page stays where it is.
+  /**
+   * 2. Fully's other intent doors, in case startIntent is not the one.
+   *
+   * Deliberately NOT window.location here. Inside a WebView an unhandled
+   * scheme does not quietly hand off — it navigates, and the kiosk ends
+   * up on an error page with the session behind it. Losing the screen a
+   * student is standing at is worse than not printing.
+   */
   try {
-    if (window.fully) {
-      window.location.href = url;
-      lastRoute = 'location.href (fully present)';
+    if (typeof window.fully?.broadcastIntent === 'function') {
+      window.fully.broadcastIntent(url);
+      lastRoute = 'fully.broadcastIntent';
       return;
     }
   } catch (error) {
-    lastRoute = `location.href threw: ${error.message}`;
+    lastRoute = `broadcastIntent threw: ${error.message}`;
   }
 
-  // 3. Chrome: a hidden frame, which needs no user gesture and leaves
-  //    the kiosk page loaded.
+  // 3. Chrome, and a last resort inside Fully: a hidden frame. It needs
+  //    no user gesture and, crucially, cannot navigate the page away.
   const frame = document.createElement('iframe');
   frame.setAttribute('aria-hidden', 'true');
   frame.style.cssText = 'position:absolute;width:0;height:0;border:0;left:-9999px';
