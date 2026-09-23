@@ -76,7 +76,7 @@ function groupSessions(sessions) {
  * Set once with ?print=rawbt (or ?print=intent, or ?print=browser to go
  * back) and the kiosk keeps it, so the shortcut on the terminal can be the
  * plain /kiosk address and nobody has to retype query strings after a
- * reboot. Paper width is remembered the same way: ?paper=58 or ?paper=80.
+ * reboot. Paper width is remembered the same way: 58mm unless ?paper=80.
  */
 function printSettings() {
   const params = new URLSearchParams(window.location.search);
@@ -97,12 +97,92 @@ function printSettings() {
 
   return {
     mode: read('print', 'browser'),
-    width: Number(read('paper', '80')) === 58 ? 32 : 48,
+    // 58mm is what the laboratory's printer takes; ?paper=80 is for a
+    // wider roll. 32 characters across on 58mm, 48 on 80mm.
+    width: Number(read('paper', '58')) === 80 ? 48 : 32,
     // Which printer, for the Bluetooth route. A name or a MAC: both are
     // properties of the room, so they live on the device, not in the code.
     btName: read('bt', ''),
     btMac: read('btmac', ''),
   };
+}
+
+/**
+ * Declares the paper to the browser.
+ *
+ * `@page` takes no selector, so a stylesheet cannot hold both roll sizes
+ * and let the device pick one. Writing the rule from the kiosk's own paper
+ * setting keeps that setting the single source of truth: ?paper=58 or
+ * ?paper=80 then means the same thing to the thermal routes and to Chrome.
+ *
+ * Without it Chrome lays the receipt out on whatever the default page is,
+ * usually A4, and a 58mm printer feeds most of a page per ticket.
+ */
+function setPaperSize(millimetres) {
+  const id = 'kiosk-page-size';
+  const style = document.getElementById(id) ?? document.createElement('style');
+  style.id = id;
+  style.textContent = `@media print { @page { size: ${millimetres}mm auto; margin: 2mm; } }`;
+  if (!style.isConnected) document.head.appendChild(style);
+}
+
+/**
+ * The browser's own print, waited on.
+ *
+ * Chrome only prints without asking when it was started with
+ * `--kiosk-printing`; then window.print() sends the job straight to the
+ * default printer and returns. Without that flag it opens the preview and
+ * somebody has to tap Print — which is the kiosk not printing by itself.
+ * docs/KIOSK-PRINTING.md has the shortcut to use.
+ *
+ * Either way the job is not finished when window.print() returns, so this
+ * resolves on `afterprint` instead. The kiosk uses that to hold the
+ * receipt on the page until the printer has actually had it: resetting
+ * first would unmount the ticket mid-job and print a blank strip.
+ */
+function printInBrowser() {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(guard);
+      window.removeEventListener('afterprint', finish);
+      resolve();
+    };
+
+    // Not every browser fires afterprint, and a preview left open should
+    // not strand the kiosk on the receipt screen for ever.
+    const guard = setTimeout(finish, 20_000);
+    window.addEventListener('afterprint', finish);
+
+    try {
+      window.print();
+    } catch {
+      finish();
+    }
+  });
+}
+
+/**
+ * Waits until the receipt is really on the page before printing it.
+ *
+ * Printing in the same tick as the check-in response catches the page
+ * before React has committed the ticket, or before the fonts it is laid
+ * out in have loaded — Chrome then prints an empty page, or one in the
+ * wrong metrics. A frame after the fonts are ready is both late enough to
+ * be correct and short enough that nobody at the kiosk notices a pause.
+ */
+function whenPainted() {
+  const fonts = document.fonts?.ready ?? Promise.resolve();
+  return fonts
+    .catch(() => {})
+    .then(
+      () =>
+        new Promise((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(resolve));
+        })
+    );
 }
 
 export default function Kiosk() {
@@ -121,6 +201,9 @@ export default function Kiosk() {
   const [cameraOn, setCameraOn] = useState(false);
   const [rearCamera, setRearCamera] = useState(true);
   const [clock, setClock] = useState(new Date());
+  // 58mm unless this terminal was set up with ?paper=80. Read once: the
+  // roll in the printer does not change while somebody is standing there.
+  const [paperMm] = useState(() => (printSettings().width === 48 ? 80 : 58));
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -203,6 +286,11 @@ export default function Kiosk() {
     return () => clearInterval(timer);
   }, []);
 
+  // The paper this terminal prints on, told to the browser once.
+  useEffect(() => {
+    setPaperSize(paperMm);
+  }, [paperMm]);
+
   /**
    * A kiosk should not go dark while somebody is standing at it. Fully
    * Kiosk can hold the screen on; on an ordinary browser we ask for a
@@ -253,23 +341,24 @@ export default function Kiosk() {
      * available.
      */
     if (mode === 'bt' && issued) {
-      Promise.resolve(printViaFullyBluetooth(issued, width, { name: btName, mac: btMac }))
+      return Promise.resolve(printViaFullyBluetooth(issued, width, { name: btName, mac: btMac }))
         .then((result) => console.log('[kiosk] bluetooth print:', result));
-      return;
     }
 
-    if (mode !== 'browser' && issued && printViaRawBT(issued, width, mode)) return;
+    if (mode !== 'browser' && issued && printViaRawBT(issued, width, mode)) {
+      return Promise.resolve();
+    }
 
     try {
       if (typeof window.fully?.print === 'function') {
         window.fully.print();
-        return;
+        return Promise.resolve();
       }
     } catch {
       /* fall through to the browser's own print */
     }
 
-    window.print();
+    return printInBrowser();
   }, []);
 
   /**
@@ -302,12 +391,15 @@ export default function Kiosk() {
             : `Checked in at ${names[0] ?? res.data.computer?.name}. Take your receipt.`
         );
 
-        // Print as soon as the receipt is in the DOM. Two frames is enough
-        // for React to commit it; any longer is a pause people notice.
-        requestAnimationFrame(() =>
-          requestAnimationFrame(() => printReceipt(res.data.receipt))
-        );
-        scheduleReset(20_000);
+        // Print the moment the ticket is on the page, with no tap in
+        // between: the scan is the whole interaction. The reset waits for
+        // the printer, so the receipt cannot be unmounted mid-job, and a
+        // long fallback covers a route that never reports back at all.
+        scheduleReset(90_000);
+        whenPainted()
+          .then(() => printReceipt(res.data.receipt))
+          .catch(() => {})
+          .then(() => scheduleReset(15_000));
       } catch (error) {
         beep('error');
         setMessage({ tone: 'error', text: error.message });
@@ -514,7 +606,7 @@ export default function Kiosk() {
       )}
 
       {/* The printed ticket lives outside the visible layout. */}
-      {receipt && <Receipt receipt={receipt} />}
+      {receipt && <Receipt receipt={receipt} paper={paperMm} />}
 
       <div className="kiosk-screen">
         <header className="kiosk-head">
