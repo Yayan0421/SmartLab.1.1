@@ -22,6 +22,9 @@ router.post('/scan', kioskLimiter, authenticateKiosk, kioskController.scan);
 router.post('/check-in', kioskLimiter, authenticateKiosk, kioskController.checkIn);
 router.post('/check-out', kioskLimiter, authenticateKiosk, kioskController.checkOut);
 
+// Reprinting is the kiosk's 'print again', so it carries the device key.
+router.post('/print', kioskLimiter, authenticateKiosk, kioskController.reprint);
+
 // The receipt list is an administrator view, not a kiosk one.
 router.get('/receipts', authenticate, requireAdmin, kioskController.listReceipts);
 

@@ -45,6 +45,21 @@ export const env = {
   // The laboratory's own timezone. Bookings, opening hours and "today" are
   // all local facts, so they are computed in this zone rather than UTC.
   labTimezone: process.env.LAB_TIMEZONE || 'Asia/Manila',
+  /**
+   * A network receipt printer, addressed directly.
+   *
+   * Set PRINTER_HOST to the printer's address on the laboratory network
+   * and the server prints every check-in itself, whatever device did the
+   * scanning. Left unset, the kiosk prints through the browser as before:
+   * a laboratory that is already printing should not start getting two
+   * receipts because this was added.
+   *
+   * PRINTER_WIDTH is characters per line, not millimetres: 32 for a 58mm
+   * roll, 48 for an 80mm one.
+   */
+  printerHost: process.env.PRINTER_HOST || '',
+  printerPort: toInt(process.env.PRINTER_PORT, 9100),
+  printerWidth: toInt(process.env.PRINTER_WIDTH, 32),
 };
 
 export default env;

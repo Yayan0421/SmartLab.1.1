@@ -79,6 +79,12 @@ export const kioskService = {
   checkIn: ({ booking_id, batch_id, photo } = {}) =>
     kiosk.post('/kiosk/check-in', { booking_id, batch_id, photo }),
   checkOut: (booking_id) => kiosk.post('/kiosk/check-out', { booking_id }),
+  /**
+   * Asks the server to print a receipt again on the network printer.
+   * By number, so the second copy is read back from the database rather
+   * than from whatever this device is holding.
+   */
+  print: (receipt_no) => kiosk.post('/kiosk/print', { receipt_no }),
 };
 
 export default kioskService;

@@ -8,6 +8,11 @@ import { notify } from '../services/notificationService.js';
 import { getSetting } from '../services/settingsService.js';
 import { PUBLIC_FIELDS } from '../utils/userFields.js';
 import { labToday, labMinutes } from '../utils/labTime.js';
+import {
+  printReceipt,
+  printReceiptInBackground,
+  printerConfigured,
+} from '../services/printService.js';
 
 const CHECKIN_BUCKET = 'checkins';
 const MAX_PHOTO_BYTES = 900_000;
@@ -286,36 +291,60 @@ export const checkIn = asyncHandler(async (req, res) => {
     type: 'success',
   });
 
+  // Everything the printed ticket needs, so the kiosk does no maths.
+  const receipt = buildReceipt(session, names, receiptNo, checkedInAt);
+
+  /**
+   * The paper, where the laboratory has a network printer.
+   *
+   * Printing here rather than in the browser means the receipt comes out
+   * whatever did the scanning - the kiosk terminal, a tablet, a phone -
+   * and that the job either reaches the printer or is logged as having
+   * failed. Deliberately not awaited: the student is standing at the
+   * kiosk, and the answer should not wait on a printer.
+   */
+  printReceiptInBackground(receipt);
+
   res.status(201).json({
     success: true,
     data: {
       ...session,
       // Every row that was checked in, so the kiosk can show the set.
       sessions,
-      // Everything the printed ticket needs, so the kiosk does no maths.
-      receipt: {
-        number: receiptNo,
-        issued_at: checkedInAt,
-        name: session.user?.full_name,
-        id_number: session.user?.id_number,
-        role: session.user?.role,
-        program: session.user?.department,
-        course: session.user?.course,
-        // `computer` stays for a single booking; `computers` carries the
-        // set, so the ticket can list a class without reprinting itself.
-        computer: names.length === 1 ? names[0] : null,
-        computers: names,
-        room: session.computer?.laboratory?.room_number ?? null,
-        laboratory: session.computer?.laboratory?.name ?? null,
-        subject: session.subject,
-        purpose: session.purpose,
-        date: session.booking_date,
-        start_time: session.start_time,
-        end_time: session.end_time,
-      },
+      // True when the server printed it, so the kiosk knows not to print
+      // a second copy through the browser.
+      printed_by_server: printerConfigured(),
+      receipt,
     },
   });
 });
+
+/**
+ * The receipt payload: one place, so the copy the kiosk renders and the
+ * copy the server prints can never drift apart.
+ */
+function buildReceipt(session, names, receiptNo, checkedInAt) {
+  return {
+    number: receiptNo,
+    issued_at: checkedInAt,
+    name: session.user?.full_name,
+    id_number: session.user?.id_number,
+    role: session.user?.role,
+    program: session.user?.department,
+    course: session.user?.course,
+    // `computer` stays for a single booking; `computers` carries the set,
+    // so the ticket can list a class without reprinting itself.
+    computer: names.length === 1 ? names[0] : null,
+    computers: names,
+    room: session.computer?.laboratory?.room_number ?? null,
+    laboratory: session.computer?.laboratory?.name ?? null,
+    subject: session.subject,
+    purpose: session.purpose,
+    date: session.booking_date,
+    start_time: session.start_time,
+    end_time: session.end_time,
+  };
+}
 
 /**
  * POST /api/kiosk/check-out
@@ -354,6 +383,46 @@ export const checkOut = asyncHandler(async (req, res) => {
   await recordAudit(req, { action: 'kiosk.check_out', entity: 'bookings', entityId: booking.id });
 
   res.json({ success: true, data: flatten(updated) });
+});
+
+/**
+ * POST /api/kiosk/print - prints a receipt again.
+ *
+ * Takes a receipt number, not a receipt. The kiosk could send the ticket
+ * it is already showing, but then a reprint would carry whatever that
+ * device happened to hold; read back from the database, the second copy
+ * is the same document as the first by construction.
+ */
+export const reprint = asyncHandler(async (req, res) => {
+  if (!printerConfigured()) {
+    throw ApiError.badRequest('This server has no network printer configured.');
+  }
+
+  const receiptNo = String(req.body?.receipt_no ?? '').trim().toUpperCase();
+  if (!receiptNo) throw ApiError.badRequest('A receipt number is required.');
+
+  const { data, error } = await supabase
+    .from(TABLES.bookings)
+    .select(BOOKING_SELECT)
+    .eq('receipt_no', receiptNo);
+
+  if (error) throw ApiError.internal();
+
+  const rows = (data ?? []).map(flatten);
+  if (rows.length === 0) throw ApiError.notFound('No receipt with that number.');
+
+  // A class booking shares one number across its rows, and printed one
+  // ticket listing every machine. A reprint is that same ticket.
+  const session = rows[0];
+  const names = rows.map((row) => row.computer?.name).filter(Boolean);
+
+  const result = await printReceipt(
+    buildReceipt(session, names, receiptNo, session.checked_in_at)
+  );
+
+  if (!result.ok) throw ApiError.internal(`The printer did not accept the job: ${result.detail}`);
+
+  res.json({ success: true, data: { printed: true, detail: result.detail } });
 });
 
 /**

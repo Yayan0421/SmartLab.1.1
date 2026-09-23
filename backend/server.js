@@ -204,6 +204,14 @@ async function start() {
       console.log('  HTTPS: on (self-signed — accept the warning once per device)');
     }
 
+    // Worth a line of its own: a blank here is the whole explanation when
+    // a laboratory expects the server to print and nothing comes out.
+    console.log(
+      env.printerHost
+        ? `  Printer: ${env.printerHost}:${env.printerPort} (${env.printerWidth} columns)`
+        : '  Printer: none configured - the kiosk prints through the browser'
+    );
+
     const lan = lanAddresses();
     if (lan.length) {
       console.log('\n  On this network:');

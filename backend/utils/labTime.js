@@ -67,4 +67,18 @@ export function labDaysAhead(dateStr) {
   return Math.round((toUtcMidnight(dateStr) - toUtcMidnight(labToday())) / 86_400_000);
 }
 
+/**
+ * A timestamp written in laboratory time, for something a person reads.
+ *
+ * The receipt is the case that matters: a server in another zone, or one
+ * whose clock is set to UTC, would otherwise print an arrival time that
+ * disagrees with the wall clock the student just looked at.
+ */
+export function labFormat(value, options) {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('en-US', { timeZone: ZONE, ...options }).format(date);
+}
+
 export { ZONE as LAB_TIMEZONE };

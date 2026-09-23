@@ -10,9 +10,48 @@ per device with a query string, which the kiosk then remembers:
 | Windows / desktop Chrome with a USB or network printer | `/kiosk?print=browser` (the default) | the browser's own print |
 | Android tablet with a Bluetooth thermal printer, running Fully Kiosk | `/kiosk?print=bt&bt=<printer name>` | straight over Bluetooth |
 | Android with the RawBT print service | `/kiosk?print=rawbt` (or `?print=intent`) | RawBT, no dialog |
+| **Any device, with a Wi-Fi or Ethernet printer** | `PRINTER_HOST` in `backend/.env` | the server prints it over TCP 9100 |
 
 Paper width: 58mm is the default. Append `?paper=80` for a wider roll;
 like the route, the terminal remembers it.
+
+## A network printer (the sturdiest route)
+
+A Wi-Fi or Ethernet receipt printer listens on TCP 9100 and prints whatever
+ESC/POS it is sent, so the server can print the receipt itself. That takes
+the browser, the print app and the kiosk device out of the picture
+altogether: the receipt comes out whichever device did the scanning, and a
+failure is a line in the server log instead of silence.
+
+Set it up in `backend/.env`:
+
+```
+PRINTER_HOST=192.168.1.50
+PRINTER_PORT=9100
+PRINTER_WIDTH=32
+```
+
+and restart the API. From then on every check-in prints, and the kiosk page
+stands down rather than printing a second copy - the check-in response says
+`printed_by_server`, and the terminal believes it.
+
+Before that, get the printer onto the network and give it a fixed address
+(or reserve one on the router; a printer whose IP moves is a kiosk that
+quietly stops printing). Check it from the server:
+
+```powershell
+Test-NetConnection 192.168.1.50 -Port 9100
+$c = New-Object Net.Sockets.TcpClient('192.168.1.50', 9100)
+$s = $c.GetStream(); $b = [Text.Encoding]::ASCII.GetBytes("SMARTLAB test`n`n`n")
+$s.Write($b, 0, $b.Length); $c.Close()
+```
+
+If paper comes out, SMARTLAB will print to it.
+
+A printer that is off, jammed or out of paper never delays a check-in: the
+job is sent in the background with a four-second timeout, and the session
+starts either way. Watch the API console for `[printer] printed:` or
+`[printer] FAILED:`.
 
 ## Chrome: making it print without a dialog
 
