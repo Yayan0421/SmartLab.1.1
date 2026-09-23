@@ -4,12 +4,12 @@ import { labFormat } from '../../utils/labConstants.js';
 /**
  * The printed ticket.
  *
- * Hidden on screen and revealed only by the print stylesheet, sized for an
- * 80mm thermal roll — the printer a kiosk normally has. Everything on it
- * comes from the server's receipt payload, so the paper and the database
- * can never disagree.
+ * Hidden on screen and revealed only by the print stylesheet, sized for a
+ * 58mm thermal roll by default and an 80mm one where the terminal was set
+ * up for it. Everything on it comes from the server's receipt payload, so
+ * the paper and the database can never disagree.
  */
-export default function Receipt({ receipt }) {
+export default function Receipt({ receipt, paper = 58 }) {
   if (!receipt) return null;
 
   // A booking across several machines prints one ticket listing them all.
@@ -32,7 +32,7 @@ export default function Receipt({ receipt }) {
   });
 
   return (
-    <div className="receipt" aria-hidden="true">
+    <div className={`receipt ${paper === 80 ? 'is-80' : ''}`} aria-hidden="true">
       <div className="receipt-head">
         <div className="receipt-logo">SMARTLAB</div>
         <div className="receipt-org">Smart Computer Laboratory</div>

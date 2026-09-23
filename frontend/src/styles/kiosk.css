@@ -295,12 +295,10 @@
 .receipt { display: none; }
 
 @media print {
-  /* A thermal roll is 80mm wide with roughly 72mm printable. Declaring the
-     page as a continuous roll stops the printer feeding a whole sheet. */
-  @page {
-    size: 80mm auto;
-    margin: 3mm;
-  }
+  /* The page size itself is written at runtime from the kiosk's paper
+     setting (see setPaperSize in Kiosk.jsx), because @page cannot be
+     selected by a class. Everything below is the 58mm roll this laboratory
+     prints on; .receipt.is-80 further down widens it for an 80mm one. */
 
   body * { visibility: hidden !important; }
 
@@ -314,25 +312,27 @@
     position: absolute;
     left: 0;
     top: 0;
-    /* Fills the paper it is given rather than assuming one size. On a roll
-       that is the full width; if the printer only offers A4 or Letter the
-       cap keeps it a receipt-shaped strip instead of stretched text. */
+    /* Fills the paper it is given rather than assuming one size. A 58mm
+       roll has roughly 48mm of printable width; the cap keeps the ticket a
+       receipt-shaped strip if the printer only offers A4 or Letter. */
     width: 100%;
-    max-width: 76mm;
+    max-width: 54mm;
     margin: 0 auto;
     color: #000;
     background: #fff;
     font-family: 'Courier New', Consolas, monospace;
-    /* Thermal heads are coarse: small type comes out muddy. */
-    font-size: 12px;
-    line-height: 1.5;
+    /* Sized so a label and its value still fit side by side across 58mm:
+       about 32 monospace characters, the same as the text receipt. Thermal
+       heads are coarse, so this is as small as the type should go. */
+    font-size: 10.5px;
+    line-height: 1.45;
     font-weight: 600;
   }
 
   .receipt-head { text-align: center; }
-  .receipt-logo { font-size: 19px; font-weight: 800; letter-spacing: 0.2em; }
-  .receipt-org { font-size: 12px; font-weight: 700; margin-top: 2px; }
-  .receipt-line { font-size: 11px; }
+  .receipt-logo { font-size: 15px; font-weight: 800; letter-spacing: 0.14em; }
+  .receipt-org { font-size: 10px; font-weight: 700; margin-top: 2px; }
+  .receipt-line { font-size: 9.5px; }
 
   .receipt-rule {
     border-top: 1px dashed #000;
@@ -342,15 +342,15 @@
   .receipt-title {
     text-align: center;
     font-weight: 800;
-    letter-spacing: 0.16em;
-    font-size: 12px;
+    letter-spacing: 0.12em;
+    font-size: 10.5px;
   }
 
   .receipt-no {
     text-align: center;
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 800;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
     margin-top: 2px;
   }
 
@@ -375,9 +375,24 @@
 
   .receipt-foot {
     text-align: center;
-    font-size: 10.5px;
+    font-size: 9px;
     margin-top: 6px;
   }
+
+  /* An 80mm roll, for a terminal set up with ?paper=80. Only the widths and
+     the type change; the ticket is the same ticket. */
+  .receipt.is-80 {
+    max-width: 76mm;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .receipt.is-80 .receipt-logo { font-size: 19px; letter-spacing: 0.2em; }
+  .receipt.is-80 .receipt-org { font-size: 12px; }
+  .receipt.is-80 .receipt-line { font-size: 11px; }
+  .receipt.is-80 .receipt-title { font-size: 12px; letter-spacing: 0.16em; }
+  .receipt.is-80 .receipt-no { font-size: 15px; letter-spacing: 0.08em; }
+  .receipt.is-80 .receipt-foot { font-size: 10.5px; }
 
   /* Thermal printing is one colour: anything grey comes out patchy, and
      browsers otherwise try to save "ink" by lightening. */
