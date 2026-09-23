@@ -4,7 +4,7 @@ import kioskService, { rememberKioskKey } from '../../services/kioskService.js';
 import Receipt from './Receipt.jsx';
 import { formatTimeRange } from '../../utils/format.js';
 import { labFormat } from '../../utils/labConstants.js';
-import { printViaRawBT } from '../../utils/receiptText.js';
+import { printViaRawBT, printDiagnostics } from '../../utils/receiptText.js';
 
 /**
  * Smart Computer Laboratory — self-service kiosk.
@@ -478,6 +478,22 @@ export default function Kiosk() {
 
   return (
     <div className="kiosk">
+      {/*
+        ?debug=1 — what this device actually offers.
+
+        A print that silently does nothing is the hardest kind to chase:
+        nothing throws, nothing logs, and the same code works in the
+        browser next to it. This says which route the job took and
+        whether Fully's JavaScript bridge is there at all.
+      */}
+      {new URLSearchParams(window.location.search).get('debug') === '1' && (
+        <pre className="kiosk-debug">
+          {Object.entries(printDiagnostics())
+            .map(([k, v]) => `${k}: ${v}`)
+            .join('\n')}
+        </pre>
+      )}
+
       {/* The printed ticket lives outside the visible layout. */}
       {receipt && <Receipt receipt={receipt} />}
 

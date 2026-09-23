@@ -136,10 +136,11 @@ function handOff(url) {
   try {
     if (typeof window.fully?.startIntent === 'function') {
       window.fully.startIntent(url);
+      lastRoute = 'fully.startIntent';
       return;
     }
-  } catch {
-    /* fall through to the ordinary routes */
+  } catch (error) {
+    lastRoute = `fully.startIntent threw: ${error.message}`;
   }
 
   // 2. Inside any other WebView, navigate: the scheme is handed to
@@ -147,10 +148,11 @@ function handOff(url) {
   try {
     if (window.fully) {
       window.location.href = url;
+      lastRoute = 'location.href (fully present)';
       return;
     }
-  } catch {
-    /* fall through */
+  } catch (error) {
+    lastRoute = `location.href threw: ${error.message}`;
   }
 
   // 3. Chrome: a hidden frame, which needs no user gesture and leaves
@@ -163,6 +165,35 @@ function handOff(url) {
   // Long enough for Android to pick the intent up, short enough that a
   // day of check-ins does not leave a hundred frames behind.
   setTimeout(() => frame.remove(), 4000);
+  lastRoute = 'hidden iframe';
+}
+
+/**
+ * Which route the last print attempt took.
+ *
+ * None of these report success — Android takes the URL and says nothing
+ * back — so the only honest diagnostic is which door the job went
+ * through. When a kiosk prints in one browser and silently does nothing
+ * in another, that is the single fact worth knowing.
+ */
+let lastRoute = 'none yet';
+
+/** A snapshot of what this device offers, for the kiosk's ?debug=1 panel. */
+export function printDiagnostics() {
+  let fullyKeys = [];
+  try {
+    if (window.fully) fullyKeys = Object.keys(window.fully).slice(0, 40);
+  } catch {
+    /* the bridge may exist but refuse enumeration */
+  }
+
+  return {
+    route: lastRoute,
+    fullyPresent: Boolean(window.fully),
+    startIntent: typeof window.fully?.startIntent,
+    fullyApi: fullyKeys.join(', ') || '(none)',
+    ua: navigator.userAgent,
+  };
 }
 
 /** How the job reaches RawBT. Two encodings, because devices differ. */

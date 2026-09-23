@@ -487,3 +487,23 @@
   0%, 100% { transform: translateY(-46px); opacity: 0.35; }
   50% { transform: translateY(46px); opacity: 1; }
 }
+
+/* The ?debug=1 panel: deliberately plain and deliberately on top, so it
+   can be read and photographed on a terminal with no developer tools. */
+.kiosk-debug {
+  position: fixed;
+  inset: auto 8px 8px 8px;
+  z-index: 9999;
+  max-height: 42vh;
+  overflow: auto;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(20, 8, 12, 0.92);
+  color: #f7ecd4;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
