@@ -215,11 +215,22 @@ export function printViaRawBT(receipt, width = 48, mode = 'rawbt') {
   try {
     const payload = encodeURIComponent(receiptToText(receipt, width));
 
-    handOff(
-      mode === 'intent'
-        ? `intent:${payload}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end`
-        : `rawbt:${payload}`
-    );
+    const asIntent = `intent:${payload}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end`;
+    const asScheme = `rawbt:${payload}`;
+
+    /**
+     * Fully gets the intent: form, whatever the mode says.
+     *
+     * Its startIntent expects an Android intent URL. A bare custom
+     * scheme is what Chrome wants, and handing that to startIntent is
+     * asking it to parse something it was not built for — which fails
+     * silently, because nothing in this chain reports back. The intent:
+     * form also names RawBT's package outright, so Android has no
+     * chooser to show and nothing to guess at.
+     */
+    const preferIntent = mode === 'intent' || Boolean(window.fully);
+
+    handOff(preferIntent ? asIntent : asScheme);
     return true;
   } catch {
     return false;
