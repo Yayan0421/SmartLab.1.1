@@ -248,7 +248,22 @@ export function printViaRawBT(receipt, width = 48, mode = 'rawbt') {
   try {
     const payload = encodeURIComponent(receiptToText(receipt, width));
 
-    const asIntent = `intent:${payload}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end`;
+    /**
+     * The action is the part that decides whether this prints.
+     *
+     * An intent URL naming only a package has no action, so Android
+     * falls back to launching that application's main screen — RawBT
+     * appears, sits there, and prints nothing. It looks like a hang and
+     * is really a wrong request.
+     *
+     * VIEW on a rawbt: scheme is the same thing Chrome sends when it
+     * follows the bare URL, which is why printing works there and not
+     * here. Naming the package as well keeps Android from offering a
+     * chooser.
+     */
+    const asIntent =
+      `intent:${payload}#Intent;scheme=rawbt;action=android.intent.action.VIEW;` +
+      `package=ru.a402d.rawbtprinter;end`;
     const asScheme = `rawbt:${payload}`;
 
     /**
