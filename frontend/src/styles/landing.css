@@ -1070,10 +1070,17 @@
 
 .lp .footer-grid {
   display: grid;
-  grid-template-columns: 1.1fr 0.6fr 0.9fr;
+  /* Four columns since the contact details moved in: brand, links,
+     contact, institution. */
+  grid-template-columns: 1.1fr 0.6fr 0.9fr 0.9fr;
   gap: 26px;
   align-items: start;
 }
+
+/* The addresses are longer than a nav label, so this column does not wrap
+   them mid-address. */
+.lp .footer-contact li { line-height: 1.5; }
+.lp .footer-contact a { word-break: break-word; }
 
 .lp .footer-brand-wrap {
   justify-content: flex-start;
@@ -1107,10 +1114,12 @@
   gap: 10px;
 }
 
-.lp .footer-links a, .lp .footer-meta p {
+.lp .footer-links a, .lp .footer-meta p, .lp .footer-contact li {
   color: rgba(218, 228, 255, 0.8);
   text-decoration: none;
 }
+
+.lp .footer-contact a:hover { color: #fff; text-decoration: underline; }
 
 .lp .footer-meta p {
   margin: 0 0 10px;
@@ -1238,5 +1247,57 @@
 
 .lp .cta-box {
     padding: 32px 24px;
+  }
+}
+
+
+/* =====================================================================
+   Contact details inside the call to action
+
+   Sits under the button, in one line on a wide screen and stacked on a
+   phone. Quieter than the button on purpose: it is the alternative for
+   somebody who would rather ask a person than sign up.
+   ===================================================================== */
+
+.lp .cta-contacts {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 22px;
+  font-size: 0.92rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.lp .cta-contacts li {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.lp .cta-contact-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.lp .cta-contacts a {
+  color: #fff;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.lp .cta-contacts a:hover { border-bottom-color: #fff; }
+
+.lp .cta-contact-or { color: rgba(255, 255, 255, 0.45); }
+
+@media (max-width: 720px) {
+  .lp .cta-contacts {
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
   }
 }

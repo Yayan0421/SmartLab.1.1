@@ -114,7 +114,7 @@ function Landing() {
       <header className="topbar">
         <div className="container nav-wrap">
           <a href="#home" className="brand" aria-label="SMARTLAB home">
-            <img src="/assets/icpep-logo.svg" alt="ICpEP logo" className="brand-logo" />
+            <img src="/assets/smartlab-logo.png" alt="SMARTLAB logo" className="brand-logo" />
             <div className="brand-text">
               <span className="brand-name">SMARTLAB</span>
             </div>
@@ -180,7 +180,7 @@ function Landing() {
 
               <div className="institutional-stack">
                 <div className="institutional-badge">
-                  <img src="/assets/essu-logo.svg" alt="ESSU logo" className="institutional-logo" />
+                  <img src="/assets/essu-logo.png" alt="ESSU logo" className="institutional-logo" />
                   <div>
                     <span className="institutional-label">Institutional Partner</span>
                     <strong>Eastern Samar State University</strong>
@@ -188,7 +188,7 @@ function Landing() {
                 </div>
 
                 <div className="icpep-inline-brand">
-                  <img src="/assets/icpep-logo.svg" alt="ICpEP logo" className="icpep-inline-logo" />
+                  <img src="/assets/icpep-logo.png" alt="ICpEP logo" className="icpep-inline-logo" />
                   <div>
                     <span className="icpep-inline-label">Professional organization</span>
                     <strong>Institute of Computer Engineers of the Philippines</strong>
@@ -456,7 +456,7 @@ function Landing() {
             <div className="about-brand-stack">
               <div className="about-brand">
                 <div className="about-logo-wrap">
-                  <img src="/assets/essu-logo.svg" alt="ESSU logo" className="about-logo" />
+                  <img src="/assets/essu-logo.png" alt="ESSU logo" className="about-logo" />
                 </div>
                 <div className="brand-headline">
                   <span className="section-kicker">Institutional Platform</span>
@@ -465,7 +465,7 @@ function Landing() {
               </div>
 
               <div className="icpep-brand">
-                <img src="/assets/icpep-logo.svg" alt="ICpEP logo" className="icpep-logo" />
+                <img src="/assets/icpep-logo.png" alt="ICpEP logo" className="icpep-logo" />
                 <div>
                   <span className="icpep-label">Institute of Computer Engineers of the Philippines</span>
                   <strong>ICpEP</strong>
@@ -497,6 +497,33 @@ function Landing() {
             <Link to="/register" className="primary-btn cta-btn">
               Get Started
             </Link>
+
+            {/*
+              The ways to reach a person, next to the button that does not
+              need one. Somebody who is not ready to create an account is
+              usually the one with a question, so the answer to "who do I
+              ask?" belongs here rather than only in the footer.
+            */}
+            <ul className="cta-contacts">
+              <li>
+                <span className="cta-contact-label">Web</span>
+                <a href="http://www.smartlab.com">www.smartlab.com</a>
+              </li>
+              <li>
+                <span className="cta-contact-label">Email</span>
+                <a href="mailto:contact@smartlab.com">contact@smartlab.com</a>
+                <span className="cta-contact-or">/</span>
+                <a href="mailto:smartlab@gmail.com">smartlab@gmail.com</a>
+              </li>
+              <li>
+                <span className="cta-contact-label">Facebook</span>
+                <span>SmartLab PH</span>
+              </li>
+              <li>
+                <span className="cta-contact-label">Contact</span>
+                <span>09XX-XXX-XXXX</span>
+              </li>
+            </ul>
           </div>
         </section>
       </main>
@@ -505,14 +532,14 @@ function Landing() {
         <div className="container footer-grid">
           <div className="footer-brand">
             <div className="brand footer-brand-wrap">
-              <img src="/assets/icpep-logo.svg" alt="ICpEP logo" className="brand-logo" />
+              <img src="/assets/smartlab-logo.png" alt="SMARTLAB logo" className="brand-logo" />
               <div className="brand-text">
                 <span className="brand-name">SMARTLAB</span>
               </div>
             </div>
             <div className="footer-logos">
-              <img src="/assets/icpep-logo.svg" alt="ICpEP logo" className="tiny-logo" />
-              <img src="/assets/essu-logo.svg" alt="ESSU logo" className="tiny-logo" />
+              <img src="/assets/essu-logo.png" alt="ESSU logo" className="tiny-logo" />
+              <img src="/assets/icpep-logo.png" alt="ICpEP logo" className="tiny-logo" />
             </div>
           </div>
 
@@ -523,6 +550,17 @@ function Landing() {
               <li><a href="#features">Features</a></li>
               <li><a href="#about">About</a></li>
               <li><a href="#contact">Contact</a></li>
+            </ul>
+          </div>
+
+          <div className="footer-links footer-contact">
+            <h3>Contact</h3>
+            <ul>
+              <li><a href="http://www.smartlab.com">www.smartlab.com</a></li>
+              <li><a href="mailto:contact@smartlab.com">contact@smartlab.com</a></li>
+              <li><a href="mailto:smartlab@gmail.com">smartlab@gmail.com</a></li>
+              <li>Facebook: SmartLab PH</li>
+              <li>09XX-XXX-XXXX</li>
             </ul>
           </div>
 

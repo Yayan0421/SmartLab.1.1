@@ -1,5 +1,6 @@
 import { formatDate, formatTimeRange, ROLE_LABEL } from '../../utils/format.js';
 import { labFormat } from '../../utils/labConstants.js';
+import LogoRow from '../../components/LogoRow.jsx';
 
 /**
  * The printed ticket.
@@ -34,6 +35,9 @@ export default function Receipt({ receipt, paper = 58 }) {
   return (
     <div className={`receipt ${paper === 80 ? 'is-80' : ''}`} aria-hidden="true">
       <div className="receipt-head">
+        {/* The university, the organisation, then the system - the same
+            three marks, in the same order, as the screen that printed it. */}
+        <LogoRow size={34} className="receipt-logos" />
         <div className="receipt-logo">SMARTLAB</div>
         <div className="receipt-org">Smart Computer Laboratory</div>
         {receipt.laboratory && <div className="receipt-line">{receipt.laboratory}</div>}

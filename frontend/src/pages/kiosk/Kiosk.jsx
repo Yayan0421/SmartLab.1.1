@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import jsQR from 'jsqr';
 import kioskService, { rememberKioskKey } from '../../services/kioskService.js';
 import Receipt from './Receipt.jsx';
+import KioskIntro from './KioskIntro.jsx';
+import LogoRow from '../../components/LogoRow.jsx';
 import { formatTimeRange } from '../../utils/format.js';
 import { labFormat } from '../../utils/labConstants.js';
 import { printViaRawBT, printDiagnostics } from '../../utils/receiptText.js';
@@ -24,6 +26,14 @@ import { printViaFullyBluetooth, bluetoothDevices } from '../../utils/escpos.js'
  */
 
 const IDLE_RESET_MS = 25_000;
+
+/**
+ * How long the scan prompt stands before the attract screen comes back.
+ *
+ * Longer than it takes to find a card in a bag, shorter than the gap
+ * between two students at a quiet hour.
+ */
+const IDLE_TO_INTRO_MS = 45_000;
 
 /**
  * Takes the device key out of the address bar and onto the device.
@@ -205,6 +215,23 @@ export default function Kiosk() {
   // roll in the printer does not change while somebody is standing there.
   const [paperMm] = useState(() => (printSettings().width === 48 ? 80 : 58));
 
+  /**
+   * The attract screen, and whether this terminal uses one at all.
+   *
+   * `enabled` is read once from the query string: ?intro=off goes straight
+   * to the scan screen, which is what a board that reboots several times a
+   * day wants. `intro` is whether it is showing right now - true when the
+   * kiosk is idle, false from the moment somebody touches it until the
+   * session is over and the terminal goes back to standing alone.
+   */
+  const introEnabled = useRef(
+    new URLSearchParams(window.location.search).get('intro') !== 'off'
+  );
+  const [intro, setIntro] = useState(introEnabled.current);
+  // True when the API printed the receipt itself on a network printer, so
+  // this terminal must not print a second copy.
+  const [serverPrinted, setServerPrinted] = useState(false);
+
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
@@ -269,6 +296,18 @@ export default function Kiosk() {
     setReceipt(null);
     setMessage(null);
     setBusy(false);
+    setServerPrinted(false);
+
+    /**
+     * Back to the attract screen, not to an idle scan prompt.
+     *
+     * This runs when the terminal is alone again: the receipt has printed
+     * and the session screen has timed out, or somebody walked away
+     * mid-way. Either way there is nobody in front of it, and the loop is
+     * what the room should see. The next student can still scan straight
+     * through it without touching anything.
+     */
+    setIntro(introEnabled.current);
   }, []);
 
   const scheduleReset = useCallback(
@@ -285,6 +324,38 @@ export default function Kiosk() {
     const timer = setInterval(() => setClock(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  /**
+   * Back to the attract screen when the scan prompt is left standing.
+   *
+   * reset() covers the student who checked in and walked off. This covers
+   * the one who touched the screen, changed their mind and left - without
+   * it the terminal would show a scan prompt to an empty room for the
+   * rest of the day, which is the thing the loop exists to prevent.
+   *
+   * Any touch or keypress restarts the count, so it cannot creep up on
+   * somebody still fishing their card out of a bag, and a scan cancels it
+   * outright by moving the kiosk off the waiting screen.
+   */
+  useEffect(() => {
+    if (intro || !introEnabled.current || stage !== 'waiting' || busy) return undefined;
+
+    let timer;
+    const wait = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => setIntro(true), IDLE_TO_INTRO_MS);
+    };
+
+    wait();
+    window.addEventListener('pointerdown', wait);
+    window.addEventListener('keydown', wait);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('pointerdown', wait);
+      window.removeEventListener('keydown', wait);
+    };
+  }, [intro, stage, busy]);
 
   // The paper this terminal prints on, told to the browser once.
   useEffect(() => {
@@ -362,6 +433,29 @@ export default function Kiosk() {
   }, []);
 
   /**
+   * The "print again" button.
+   *
+   * Where the server printed the receipt, the reprint belongs there too:
+   * it is read back from the database by number, so a second copy is the
+   * same document rather than whatever this device is still holding.
+   */
+  const printAgain = useCallback(async () => {
+    if (!receipt) return;
+
+    if (serverPrinted) {
+      try {
+        await kioskService.print(receipt.number);
+        setMessage({ tone: 'ok', text: 'Printing.' });
+      } catch (error) {
+        setMessage({ tone: 'error', text: error.message });
+      }
+      return;
+    }
+
+    whenPainted().then(() => printReceipt(receipt));
+  }, [receipt, serverPrinted, printReceipt]);
+
+  /**
    * Checks in and prints, with nothing in between.
    *
    * A booking that spans several machines is checked in as a whole and
@@ -391,8 +485,19 @@ export default function Kiosk() {
             : `Checked in at ${names[0] ?? res.data.computer?.name}. Take your receipt.`
         );
 
-        // Print the moment the ticket is on the page, with no tap in
-        // between: the scan is the whole interaction. The reset waits for
+        /**
+         * The server prints it where the laboratory has a network printer,
+         * and says so. Printing here as well would hand the student two
+         * identical receipts, so this terminal stands down.
+         */
+        if (res.data.printed_by_server) {
+          setServerPrinted(true);
+          scheduleReset(15_000);
+          return;
+        }
+
+        // Otherwise print the moment the ticket is on the page, with no tap
+        // in between: the scan is the whole interaction. The reset waits for
         // the printer, so the receipt cannot be unmounted mid-job, and a
         // long fallback covers a route that never reports back at all.
         scheduleReset(90_000);
@@ -416,6 +521,14 @@ export default function Kiosk() {
   const handleCode = useCallback(
     async (code) => {
       if (busy || stage !== 'waiting') return;
+
+      /**
+       * A card read by the camera is neither a touch nor a keypress, so
+       * the attract screen would otherwise stay up over the result: the
+       * student would be checked in behind a title sequence and never see
+       * it. Somebody is plainly here, so the loop stands down.
+       */
+      setIntro(false);
       setBusy(true);
       try {
         const res = await kioskService.scan(code);
@@ -605,13 +718,20 @@ export default function Kiosk() {
         </pre>
       )}
 
+      {/*
+        The title sits over the kiosk rather than replacing it: the camera
+        and the card reader are mounted and listening underneath, so a
+        card presented during the animation is read as usual.
+      */}
+      {intro && <KioskIntro onDone={() => setIntro(false)} />}
+
       {/* The printed ticket lives outside the visible layout. */}
       {receipt && <Receipt receipt={receipt} paper={paperMm} />}
 
       <div className="kiosk-screen">
         <header className="kiosk-head">
           <div className="kiosk-brand">
-            <span className="kiosk-mark">SL</span>
+            <LogoRow size={46} />
             <div>
               <div className="kiosk-title">Smart Computer Laboratory</div>
               <div className="kiosk-sub">Self-Service Kiosk</div>
@@ -729,7 +849,7 @@ export default function Kiosk() {
               <button
                 type="button"
                 className="kiosk-again"
-                onClick={() => printReceipt(receipt)}
+                onClick={() => printAgain()}
               >
                 Print again
               </button>

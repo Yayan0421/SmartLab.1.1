@@ -54,6 +54,33 @@
   font-size: 1.05rem;
 }
 
+/* --- the three marks -------------------------------------------------- */
+
+.logo-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/*
+  Each mark sits on its own pale disc.
+
+  All three artworks are dark - a green seal, a navy seal and a photograph
+  with a solid background - and the kiosk header is dark burgundy, so on
+  the bare panel they would read as three dark smudges. The disc gives
+  each one the light ground it was drawn against, and makes a row of marks
+  from three different sources look like one set.
+*/
+.logo-row-mark {
+  width: var(--logo-size, 46px);
+  height: var(--logo-size, 46px);
+  border-radius: 50%;
+  object-fit: contain;
+  background: var(--ivory);
+  padding: 2px;
+  flex: none;
+}
+
 .kiosk-title { font-size: 1.1rem; font-weight: 750; letter-spacing: -0.01em; }
 .kiosk-sub {
   font-size: 0.72rem;
@@ -330,6 +357,27 @@
   }
 
   .receipt-head { text-align: center; }
+
+  /*
+    The marks on the paper.
+
+    Centred above the wordmark and kept small: a 58mm roll has about 48mm
+    to work with, and a thermal head renders a halftone coarsely, so three
+    discs at 9mm is the most that stays legible. The disc and the padding
+    go, because paper is already white.
+  */
+  .receipt-logos {
+    justify-content: center;
+    gap: 3mm;
+    margin-bottom: 2mm;
+  }
+
+  .receipt-logos .logo-row-mark {
+    width: 9mm;
+    height: 9mm;
+    padding: 0;
+    background: transparent;
+  }
   .receipt-logo { font-size: 15px; font-weight: 800; letter-spacing: 0.14em; }
   .receipt-org { font-size: 10px; font-weight: 700; margin-top: 2px; }
   .receipt-line { font-size: 9.5px; }
@@ -387,6 +435,7 @@
     line-height: 1.5;
   }
 
+  .receipt.is-80 .receipt-logos .logo-row-mark { width: 13mm; height: 13mm; }
   .receipt.is-80 .receipt-logo { font-size: 19px; letter-spacing: 0.2em; }
   .receipt.is-80 .receipt-org { font-size: 12px; }
   .receipt.is-80 .receipt-line { font-size: 11px; }
@@ -521,4 +570,233 @@
   line-height: 1.45;
   white-space: pre-wrap;
   word-break: break-all;
+}
+
+/* =====================================================================
+   The attract screen
+
+   Loops until somebody arrives, then hands the screen to the scan view on
+   the first touch or keypress. Everything here is presentation only: the
+   scanner and the camera are already running underneath, so the animation
+   can never cost anyone a check-in.
+
+   One cycle is 7s, and every element below is timed as a percentage of
+   that same 7s. Keeping one clock is what stops the parts drifting apart
+   after a few hundred loops - an attract screen runs all day.
+   ===================================================================== */
+
+.kiosk-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  background:
+    radial-gradient(900px 520px at 50% 18%, rgba(155, 29, 48, 0.6), transparent 66%),
+    linear-gradient(170deg, var(--burgundy-900) 0%, #240610 100%);
+  color: var(--ivory);
+  cursor: pointer;
+}
+
+.kiosk-intro-seal {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(42vh, 260px);
+  height: min(42vh, 260px);
+  animation: kiosk-loop-seal 7s ease-in-out infinite;
+}
+
+.kiosk-intro-seal img {
+  width: 76%;
+  height: 76%;
+  object-fit: contain;
+  border-radius: 50%;
+  background: var(--ivory);
+  padding: 4px;
+}
+
+/* A ring that opens outward once per cycle, like a pulse leaving the mark. */
+.kiosk-intro-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(247, 236, 212, 0.55);
+  animation: kiosk-loop-ring 7s ease-out infinite;
+}
+
+/*
+  The sweep.
+
+  A pass of light across the mark - the gesture the kiosk is about to ask
+  for, performed on its own logo. Clipped to the circle so it reads as a
+  scan of the seal rather than a bar crossing the screen.
+*/
+.kiosk-intro-scan {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  background: linear-gradient(
+    180deg,
+    transparent 44%,
+    rgba(247, 236, 212, 0.85) 50%,
+    transparent 56%
+  );
+  animation: kiosk-loop-scan 7s ease-in-out infinite;
+}
+
+.kiosk-intro-name {
+  margin: 1.1rem 0 0;
+  font-size: clamp(2.2rem, 7vw, 3.6rem);
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em; /* balances the trailing letter-space */
+  animation: kiosk-loop-name 7s ease-out infinite;
+}
+
+.kiosk-intro-sub {
+  margin: 0;
+  font-size: clamp(0.85rem, 2.4vw, 1.05rem);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--taupe-light);
+  animation: kiosk-loop-rise-a 7s ease-out infinite;
+}
+
+.kiosk-intro-marks {
+  margin-top: 1.6rem;
+  animation: kiosk-loop-rise-b 7s ease-out infinite;
+}
+
+.kiosk-intro-hint {
+  margin: 0.9rem 0 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(247, 236, 212, 0.5);
+  animation: kiosk-loop-rise-c 7s ease-out infinite;
+}
+
+/*
+  The invitation.
+
+  Deliberately the one thing that does not fade out with the rest of the
+  cycle: the screen now waits indefinitely, so at every moment something
+  on it has to say what it is waiting for. It breathes instead, on its own
+  clock, so the screen is never entirely still and never entirely blank.
+*/
+.kiosk-intro-touch {
+  margin: 2.2rem 0 0;
+  padding: 0.7rem 1.6rem;
+  border: 1px solid rgba(247, 236, 212, 0.35);
+  border-radius: 999px;
+  font-size: clamp(0.8rem, 2.2vw, 0.95rem);
+  letter-spacing: 0.08em;
+  color: rgba(247, 236, 212, 0.9);
+  animation: kiosk-loop-breathe 2.6s ease-in-out infinite;
+}
+
+@keyframes kiosk-loop-seal {
+  0%   { opacity: 0; transform: scale(0.82); }
+  10%  { opacity: 1; transform: scale(1); }
+  82%  { opacity: 1; transform: scale(1); }
+  92%  { opacity: 0; transform: scale(1.04); }
+  100% { opacity: 0; transform: scale(0.82); }
+}
+
+@keyframes kiosk-loop-ring {
+  0%   { opacity: 0; transform: scale(0.86); }
+  8%   { opacity: 0.75; transform: scale(0.9); }
+  30%  { opacity: 0; transform: scale(1.35); }
+  100% { opacity: 0; transform: scale(1.35); }
+}
+
+@keyframes kiosk-loop-scan {
+  0%   { transform: translateY(-100%); opacity: 0; }
+  12%  { opacity: 1; }
+  14%  { transform: translateY(-100%); }
+  34%  { transform: translateY(100%); opacity: 1; }
+  36%  { opacity: 0; }
+  100% { transform: translateY(100%); opacity: 0; }
+}
+
+@keyframes kiosk-loop-name {
+  0%   { opacity: 0; letter-spacing: 0.62em; }
+  14%  { opacity: 1; letter-spacing: 0.3em; }
+  82%  { opacity: 1; letter-spacing: 0.3em; }
+  92%  { opacity: 0; letter-spacing: 0.36em; }
+  100% { opacity: 0; letter-spacing: 0.62em; }
+}
+
+/*
+  Three entrances, one exit.
+
+  The lines arrive one after another, which is what makes the sequence
+  feel composed rather than dumped on screen. The stagger lives in these
+  percentages and NOT in animation-delay: a delay shifts an element's
+  whole cycle, so it would also stagger the way they leave, and at the
+  wrap of every loop the screen would show half a title - the wordmark
+  already gone while the subtitle under it is still lit. They enter apart
+  and leave together.
+*/
+@keyframes kiosk-loop-rise-a {
+  0%   { opacity: 0; transform: translateY(10px); }
+  12%  { opacity: 0; transform: translateY(10px); }
+  20%  { opacity: 1; transform: translateY(0); }
+  82%  { opacity: 1; transform: translateY(0); }
+  92%  { opacity: 0; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(10px); }
+}
+
+@keyframes kiosk-loop-rise-b {
+  0%   { opacity: 0; transform: translateY(10px); }
+  17%  { opacity: 0; transform: translateY(10px); }
+  25%  { opacity: 1; transform: translateY(0); }
+  82%  { opacity: 1; transform: translateY(0); }
+  92%  { opacity: 0; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(10px); }
+}
+
+@keyframes kiosk-loop-rise-c {
+  0%   { opacity: 0; transform: translateY(10px); }
+  22%  { opacity: 0; transform: translateY(10px); }
+  30%  { opacity: 1; transform: translateY(0); }
+  82%  { opacity: 1; transform: translateY(0); }
+  92%  { opacity: 0; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(10px); }
+}
+
+@keyframes kiosk-loop-breathe {
+  0%, 100% { opacity: 0.55; transform: scale(0.99); }
+  50%      { opacity: 1; transform: scale(1.01); }
+}
+
+/*
+  Some people are made ill by motion, and a kiosk cannot ask first. The
+  attract screen still shows everything and still waits for a touch; it
+  simply stops moving to do it.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .kiosk-intro-seal,
+  .kiosk-intro-name,
+  .kiosk-intro-sub,
+  .kiosk-intro-marks,
+  .kiosk-intro-hint,
+  .kiosk-intro-touch {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    letter-spacing: 0.3em;
+  }
+
+  .kiosk-intro-sub,
+  .kiosk-intro-hint,
+  .kiosk-intro-touch { letter-spacing: normal; }
+
+  .kiosk-intro-ring,
+  .kiosk-intro-scan { display: none; }
 }
