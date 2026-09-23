@@ -197,6 +197,36 @@ set SMARTLAB_API=https://smartlab-api.onrender.com/api
 set SMARTLAB_AGENT_KEY=<AGENT_API_KEY>
 ```
 
+### Front end on Vercel instead
+
+`frontend/vercel.json` carries the same settings as the Netlify file: the
+SPA rewrite, the cache headers and the camera permission the kiosk needs.
+In the Vercel dashboard the only thing that is not in the file is:
+
+| Setting | Value |
+| --- | --- |
+| Root Directory | `frontend` |
+| `VITE_API_URL` | `https://smartlab-api.onrender.com/api` |
+
+**Do not set `VITE_KIOSK_KEY`.** See Security below.
+
+Two things that bite:
+
+- **The rewrite is not optional.** Without it `/kiosk` is a 404 on refresh,
+  because no such file exists on disk - the router owns that path, not the
+  file system. It is the single most common way a working SPA appears
+  broken on a static host.
+- **`CORS_ORIGIN` on Render has to name the Vercel address**, exactly,
+  scheme and host with no trailing slash. Deploying to both Netlify and
+  Vercel means both have to be listed, comma separated - the API reads it
+  as a list. Until the origin is listed, the site loads and can do nothing,
+  which looks like a broken back end rather than a refused origin.
+
+There is no way to deploy *only* the kiosk this way: it is a route in the
+single-page app, not a separate build, so the whole front end ships and
+the kiosk terminal is simply pointed at `/kiosk`. Nothing else is linked
+from it.
+
 ### Free-tier note
 
 Render idles a free service after 15 minutes without traffic, so the
