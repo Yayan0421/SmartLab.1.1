@@ -152,8 +152,32 @@ function comeBack() {
       /* nothing to be done if the bridge refuses */
     }
   };
-  setTimeout(pull, 1200);
-  setTimeout(pull, 3000);
+
+  /**
+   * Tried repeatedly for eight seconds, not once or twice.
+   *
+   * RawBT takes the screen to do its work and how long it holds it
+   * depends on the printer, the paper and the size of the job — none of
+   * which this page knows. A single attempt lands while RawBT is still
+   * starting and is simply overridden; the terminal is then left showing
+   * a print service to whoever walks up next.
+   *
+   * So it keeps asking until RawBT has finished and the ask sticks. The
+   * cost of an unnecessary call is nothing; the cost of giving up too
+   * early is a kiosk that is not on screen.
+   */
+  for (const delay of [600, 1200, 2000, 3000, 4500, 6000, 8000]) {
+    setTimeout(pull, delay);
+  }
+
+  // And once more when the page is shown again, which is the moment the
+  // other application actually let go.
+  const onVisible = () => {
+    if (document.visibilityState === 'visible') {
+      document.removeEventListener('visibilitychange', onVisible);
+    }
+  };
+  document.addEventListener('visibilitychange', onVisible);
 }
 
 function handOff(url) {
