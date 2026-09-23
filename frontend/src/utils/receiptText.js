@@ -113,15 +113,48 @@ export function receiptToText(receipt, width = 48) {
 }
 
 /**
- * Hands the URL to Android through a hidden frame.
+ * Hands the print URL to Android.
  *
- * Assigning window.location would work only while the scan still counts as
- * a fresh user gesture, and the check-in request outlives that window — so
- * an automatic print was being blocked while the same URL printed fine from
- * a button. A frame also leaves the kiosk page loaded, which matters: the
- * page navigating away mid-session is what a kiosk must never do.
+ * Three routes, because the two browsers this runs in behave differently
+ * and only one of them is Chrome.
+ *
+ * Fully Kiosk is a WebView. A WebView only offers its host application
+ * the chance to intercept a *main-frame* navigation, so the hidden frame
+ * below — which is what makes this work in Chrome — is never seen by
+ * Fully at all, and the print silently does nothing. Fully instead
+ * publishes a JavaScript bridge, and `fully.startIntent` is the direct
+ * way to ask it to launch RawBT.
+ *
+ * Assigning window.location is the fallback inside Fully: an external
+ * scheme does not actually navigate the page away, because Android hands
+ * it to another application instead. In Chrome that same assignment is
+ * unreliable — it needs a live user gesture, and the check-in request
+ * outlives it — which is why the frame stays the route there.
  */
 function handOff(url) {
+  // 1. Fully Kiosk's own bridge, where it exists.
+  try {
+    if (typeof window.fully?.startIntent === 'function') {
+      window.fully.startIntent(url);
+      return;
+    }
+  } catch {
+    /* fall through to the ordinary routes */
+  }
+
+  // 2. Inside any other WebView, navigate: the scheme is handed to
+  //    Android and the page stays where it is.
+  try {
+    if (window.fully) {
+      window.location.href = url;
+      return;
+    }
+  } catch {
+    /* fall through */
+  }
+
+  // 3. Chrome: a hidden frame, which needs no user gesture and leaves
+  //    the kiosk page loaded.
   const frame = document.createElement('iframe');
   frame.setAttribute('aria-hidden', 'true');
   frame.style.cssText = 'position:absolute;width:0;height:0;border:0;left:-9999px';
