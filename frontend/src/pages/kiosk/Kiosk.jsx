@@ -5,6 +5,7 @@ import Receipt from './Receipt.jsx';
 import { formatTimeRange } from '../../utils/format.js';
 import { labFormat } from '../../utils/labConstants.js';
 import { printViaRawBT, printDiagnostics } from '../../utils/receiptText.js';
+import { printViaFullyBluetooth, bluetoothDevices } from '../../utils/escpos.js';
 
 /**
  * Smart Computer Laboratory — self-service kiosk.
@@ -97,6 +98,10 @@ function printSettings() {
   return {
     mode: read('print', 'browser'),
     width: Number(read('paper', '80')) === 58 ? 32 : 48,
+    // Which printer, for the Bluetooth route. A name or a MAC: both are
+    // properties of the room, so they live on the device, not in the code.
+    btName: read('bt', ''),
+    btMac: read('btmac', ''),
   };
 }
 
@@ -237,7 +242,21 @@ export default function Kiosk() {
    * up wrongly still produces a receipt rather than nothing at all.
    */
   const printReceipt = useCallback((issued) => {
-    const { mode, width } = printSettings();
+    const { mode, width, btName, btMac } = printSettings();
+
+    /**
+     * Bluetooth first when this terminal is set up for it.
+     *
+     * It is the only route with nothing in between: no print service to
+     * install, no intent to be swallowed, no other application taking
+     * the screen. Everything else here exists because that was not
+     * available.
+     */
+    if (mode === 'bt' && issued) {
+      Promise.resolve(printViaFullyBluetooth(issued, width, { name: btName, mac: btMac }))
+        .then((result) => console.log('[kiosk] bluetooth print:', result));
+      return;
+    }
 
     if (mode !== 'browser' && issued && printViaRawBT(issued, width, mode)) return;
 
