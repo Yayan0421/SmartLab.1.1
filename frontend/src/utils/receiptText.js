@@ -359,7 +359,19 @@ export function printViaRawBT(receipt, width = 48, mode = 'rawbt') {
      * form also names RawBT's package outright, so Android has no
      * chooser to show and nothing to guess at.
      */
-    const preferIntent = mode === 'intent' || Boolean(window.fully);
+    /**
+     * The plain scheme, unless explicitly asked for the other one.
+     *
+     * Proven on the terminal itself: `am start -a VIEW -d rawbt:base64,…`
+     * prints, and Fully's startIntent resolves a URI the same way. The
+     * intent: form was a guess that Fully needed something more
+     * elaborate, and it was wrong — it resolves to nothing, so RawBT
+     * never receives the job.
+     *
+     * ?print=intent still forces the other form, for a device where this
+     * one turns out not to resolve.
+     */
+    const preferIntent = mode === 'intent';
 
     handOff(preferIntent ? asIntent : asScheme);
     return true;
