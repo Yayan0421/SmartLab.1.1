@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 /**
  * Re-runs a fetch when the user comes back to the tab.
  *
- * Bookings change while a page sits open — an admin approves or rejects in
+ * Reservations change while a page sits open — an admin approves or rejects in
  * another tab — so returning to a stale list is the common case, not a rare
  * one. A short guard stops this firing repeatedly when someone alt-tabs
  * quickly.

@@ -47,7 +47,7 @@ export const listSettings = asyncHandler(async (_req, res) => {
 
 /** PATCH /api/admin/settings/:key */
 export const patchSetting = asyncHandler(async (req, res) => {
-  const allowed = ['booking', 'energy', 'general'];
+  const allowed = ['reservation', 'energy', 'general'];
   if (!allowed.includes(req.params.key)) {
     throw ApiError.badRequest('Unknown settings group.');
   }
@@ -117,27 +117,27 @@ export const createLaboratory = asyncHandler(async (req, res) => {
 
 /**
  * GET /api/admin/reports
- * Aggregate report over a date window: booking outcomes, machine
+ * Aggregate report over a date window: reservation outcomes, machine
  * utilisation and the most active users.
  */
 export const reports = asyncHandler(async (req, res) => {
   const to = req.query.to || labToday();
   const from = req.query.from || labToday(new Date(Date.now() - 29 * 86_400_000));
 
-  const { data: bookings, error } = await supabase
-    .from(TABLES.bookings)
+  const { data: reservations, error } = await supabase
+    .from(TABLES.reservations)
     .select(`
-      id, booking_date, start_time, end_time, status,
-      user:users!bookings_user_id_fkey ( id, full_name, role ),
+      id, reservation_date, start_time, end_time, status,
+      user:users!reservations_user_id_fkey ( id, full_name, role ),
       computer:computers ( id, name, computer_number )
     `)
-    .gte('booking_date', from)
-    .lte('booking_date', to)
+    .gte('reservation_date', from)
+    .lte('reservation_date', to)
     .limit(20000);
 
   if (error) throw ApiError.internal();
 
-  const rows = bookings ?? [];
+  const rows = reservations ?? [];
   const pick = (row, key) => (Array.isArray(row[key]) ? row[key][0] : row[key]);
 
   const minutes = (start, end) => {
@@ -161,10 +161,10 @@ export const reports = asyncHandler(async (req, res) => {
       const entry = byComputer.get(computer.id) || {
         id: computer.id,
         name: computer.name,
-        bookings: 0,
+        reservations: 0,
         hours: 0,
       };
-      entry.bookings += 1;
+      entry.reservations += 1;
       entry.hours += minutes(row.start_time, row.end_time) / 60;
       byComputer.set(computer.id, entry);
     }
@@ -176,10 +176,10 @@ export const reports = asyncHandler(async (req, res) => {
         id: user.id,
         name: user.full_name,
         role: user.role,
-        bookings: 0,
+        reservations: 0,
         hours: 0,
       };
-      entry.bookings += 1;
+      entry.reservations += 1;
       entry.hours += minutes(row.start_time, row.end_time) / 60;
       byUser.set(user.id, entry);
     }
@@ -195,7 +195,7 @@ export const reports = asyncHandler(async (req, res) => {
     data: {
       range: { from, to },
       totals: {
-        bookings: rows.length,
+        reservations: rows.length,
         hours: Number(totalHours.toFixed(1)),
         completed: byStatus.COMPLETED ?? 0,
         cancelled: (byStatus.CANCELLED ?? 0) + (byStatus.REJECTED ?? 0) + (byStatus.EXPIRED ?? 0),
@@ -203,9 +203,9 @@ export const reports = asyncHandler(async (req, res) => {
       by_status: byStatus,
       by_role: byRole,
       top_computers: round(
-        [...byComputer.values()].sort((a, b) => b.bookings - a.bookings).slice(0, 10)
+        [...byComputer.values()].sort((a, b) => b.reservations - a.reservations).slice(0, 10)
       ),
-      top_users: round([...byUser.values()].sort((a, b) => b.bookings - a.bookings).slice(0, 10)),
+      top_users: round([...byUser.values()].sort((a, b) => b.reservations - a.reservations).slice(0, 10)),
     },
   });
 });

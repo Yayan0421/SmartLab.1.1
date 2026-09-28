@@ -19,7 +19,7 @@ const KEY_STORE = 'smartlab.kiosk.key';
  *
  * A VITE_ variable is compiled into the bundle every browser downloads, so
  * setting the key that way publishes it: anyone who opened the site could
- * check bookings in and read cards. In a deployed build the variable is
+ * check reservations in and read cards. In a deployed build the variable is
  * left unset and the key is instead stored on the kiosk device itself,
  * put there once through /kiosk?key=… and kept in localStorage.
  *
@@ -73,12 +73,12 @@ kiosk.interceptors.response.use(
 export const kioskService = {
   scan: (code) => kiosk.post('/kiosk/scan', { code }),
   /**
-   * Starts a session. Given a batch_id — a class booking across several
+   * Starts a session. Given a batch_id — a class reservation across several
    * machines — the whole set is checked in together under one receipt.
    */
-  checkIn: ({ booking_id, batch_id, photo } = {}) =>
-    kiosk.post('/kiosk/check-in', { booking_id, batch_id, photo }),
-  checkOut: (booking_id) => kiosk.post('/kiosk/check-out', { booking_id }),
+  checkIn: ({ reservation_id, batch_id, photo } = {}) =>
+    kiosk.post('/kiosk/check-in', { reservation_id, batch_id, photo }),
+  checkOut: (reservation_id) => kiosk.post('/kiosk/check-out', { reservation_id }),
   /**
    * Asks the server to print a receipt again on the network printer.
    * By number, so the second copy is read back from the database rather

@@ -3,7 +3,7 @@ import env from '../config/env.js';
 /**
  * Dates and times in the laboratory's own timezone.
  *
- * Everything a booking means is local: "today", "09:00", "30 minutes late".
+ * Everything a reservation means is local: "today", "09:00", "30 minutes late".
  * Computing those from UTC breaks for any country that is not on it — in
  * Manila (UTC+8) the server would still call it yesterday until 08:00 local,
  * which is inside laboratory hours, so the first hour of every day would

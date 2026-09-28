@@ -16,13 +16,13 @@ Think of the laboratory as a building.
   is always at least one of them, and the system refuses to let the last one
   be removed, demoted or switched off — otherwise nobody could ever appoint
   another.
-- **Administrator** runs the building day to day. Computers, bookings,
+- **Administrator** runs the building day to day. Computers, reservations,
   monitoring, energy, reports, and the student and faculty accounts are all
   theirs. What they cannot do is hand out keys to the key cabinet: they
   cannot create, edit or even see administrator accounts, and they cannot
   promote anybody — including themselves — to administrator.
 - **Faculty** and **Student** are the people who use the laboratory. They
-  book computers and manage their own profile.
+  reserve computers and manage their own profile.
 
 The separation exists so that the person who *runs* the laboratory is not
 automatically the person who *controls who runs it*. An administrator who
@@ -43,9 +43,9 @@ same administrator portal and see the same screens, plus three more.
 | Dashboard | ✅ | ✅ | own | own |
 | Monitoring | ✅ | ✅ | ❌ | ❌ |
 | Computers (manage) | ✅ | ✅ | view | view |
-| Bookings — all | ✅ | ✅ | ❌ | ❌ |
-| Bookings — own | ✅ | ✅ | ✅ | ✅ |
-| Bookings auto-approved | ✅ | ✅ | ❌ | ❌ |
+| Reservations — all | ✅ | ✅ | ❌ | ❌ |
+| Reservations — own | ✅ | ✅ | ✅ | ✅ |
+| Reservations auto-approved | ✅ | ✅ | ❌ | ❌ |
 | Energy | ✅ | ✅ | ❌ | ❌ |
 | Reports | ✅ | ✅ | ❌ | ❌ |
 | Users — faculty & students | ✅ | ✅ | ❌ | ❌ |
@@ -57,7 +57,7 @@ same administrator portal and see the same screens, plus three more.
 | **Settings** page | ✅ | ❌ | ❌ | ❌ |
 | Own profile | ✅ | ✅ | ✅ | ✅ |
 | Laboratory QR card | ❌ | ❌ | ✅ | ✅ |
-| Receives "new booking" notifications | ✅ | ✅ | ❌ | ❌ |
+| Receives "new reservation" notifications | ✅ | ✅ | ❌ | ❌ |
 
 "own" means the person's own records only.
 
@@ -149,7 +149,7 @@ cover faculty and student accounts.
 
 - [ ] `GET /api/admin/audit-logs` → **403**
 - [ ] `GET /api/admin/settings` → **403**
-- [ ] `PATCH /api/admin/settings/booking` → **403**
+- [ ] `PATCH /api/admin/settings/reservation` → **403**
 - [ ] `GET /api/admin/reports` → **200** (still allowed)
 - [ ] `GET /api/users?role=admin` → **403**
 - [ ] `GET /api/users` → **200**, and the results contain no administrators
@@ -177,6 +177,6 @@ With exactly one active super admin:
 - [ ] Kiosk check-in and check-out still work.
 - [ ] A student books a computer; it arrives as **PENDING**.
 - [ ] A super admin books a computer; it is auto-approved, like an admin's.
-- [ ] Both the admin and the super admin receive the new-booking notification.
+- [ ] Both the admin and the super admin receive the new-reservation notification.
 - [ ] Monitoring, Energy, Computers and Reports all load for both roles.
 - [ ] QR cards and avatars still work for faculty and students.

@@ -74,8 +74,8 @@ export function EnergyAreaChart({ data, xKey = 'label', yKey = 'energy_kwh', hei
   );
 }
 
-/** Grouped bars — booking activity by day. */
-export function BookingBarChart({ data, height = 260 }) {
+/** Grouped bars — reservation activity by day. */
+export function ReservationBarChart({ data, height = 260 }) {
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>

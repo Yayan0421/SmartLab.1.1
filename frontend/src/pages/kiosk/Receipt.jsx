@@ -13,7 +13,7 @@ import LogoRow from '../../components/LogoRow.jsx';
 export default function Receipt({ receipt, paper = 58 }) {
   if (!receipt) return null;
 
-  // A booking across several machines prints one ticket listing them all.
+  // A reservation across several machines prints one ticket listing them all.
   const machines = receipt.computers ?? (receipt.computer ? [receipt.computer] : []);
 
   // Formatted in laboratory time rather than the terminal's: a kiosk set
@@ -60,7 +60,7 @@ export default function Receipt({ receipt, paper = 58 }) {
       <div className="receipt-rule" />
 
       {machines.length > 1 ? (
-        /* A class booking: one ticket for the whole set, with every
+        /* A class reservation: one ticket for the whole set, with every
            machine named on it. */
         <>
           <Row label="Computers" value={String(machines.length)} strong />

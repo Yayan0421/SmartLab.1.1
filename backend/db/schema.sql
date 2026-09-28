@@ -23,7 +23,7 @@ do $enum$ begin
 exception when duplicate_object then null; end $enum$;
 
 do $enum$ begin
-  create type booking_state as enum ('PENDING', 'APPROVED', 'REJECTED', 'CANCELLED', 'COMPLETED', 'EXPIRED');
+  create type reservation_state as enum ('PENDING', 'APPROVED', 'REJECTED', 'CANCELLED', 'COMPLETED', 'EXPIRED');
 exception when duplicate_object then null; end $enum$;
 
 -- ---------------------------------------------------------------------
@@ -38,9 +38,9 @@ create table if not exists roles (
 
 insert into roles (name, description) values
   ('super_admin', 'Owner of the system: manages administrators, system settings and audit logs'),
-  ('admin',       'Day-to-day laboratory management: computers, bookings, monitoring, energy and non-admin users'),
-  ('faculty',     'Can book computers and manage their own profile'),
-  ('student',     'Can book computers and manage their own profile')
+  ('admin',       'Day-to-day laboratory management: computers, reservations, monitoring, energy and non-admin users'),
+  ('faculty',     'Can reserve computers and manage their own profile'),
+  ('student',     'Can reserve computers and manage their own profile')
 on conflict (name) do update set description = excluded.description;
 
 -- ---------------------------------------------------------------------
@@ -137,39 +137,39 @@ create index if not exists computer_status_computer_idx  on computer_status (com
 create index if not exists computer_status_heartbeat_idx on computer_status (heartbeat_at desc);
 
 -- ---------------------------------------------------------------------
--- bookings
+-- reservations
 -- ---------------------------------------------------------------------
-create table if not exists bookings (
+create table if not exists reservations (
   id             uuid primary key default gen_random_uuid(),
   user_id        uuid not null references users (id) on delete cascade,
   computer_id    uuid not null references computers (id) on delete cascade,
-  booking_date   date not null,
+  reservation_date   date not null,
   start_time     time not null,
   end_time       time not null,
   purpose        text not null default '',
   subject        text,
   -- Set when several machines are reserved in one action, so the rows can
-  -- be shown and approved as a single booking.
+  -- be shown and approved as a single reservation.
   batch_id       uuid,
-  status         booking_state not null default 'PENDING',
+  status         reservation_state not null default 'PENDING',
   approved_by    uuid references users (id) on delete set null,
   approved_at    timestamptz,
   decision_note  text,
   cancelled_at   timestamptz,
   created_at     timestamptz not null default now(),
   updated_at     timestamptz not null default now(),
-  constraint bookings_time_order check (start_time < end_time)
+  constraint reservations_time_order check (start_time < end_time)
 );
 
-create index if not exists bookings_user_idx       on bookings (user_id);
-create index if not exists bookings_computer_idx   on bookings (computer_id);
-create index if not exists bookings_date_idx       on bookings (booking_date desc);
-create index if not exists bookings_status_idx     on bookings (status);
-create index if not exists bookings_subject_idx    on bookings (subject);
-create index if not exists bookings_batch_idx      on bookings (batch_id);
-create index if not exists bookings_created_at_idx on bookings (created_at desc);
+create index if not exists reservations_user_idx       on reservations (user_id);
+create index if not exists reservations_computer_idx   on reservations (computer_id);
+create index if not exists reservations_date_idx       on reservations (reservation_date desc);
+create index if not exists reservations_status_idx     on reservations (status);
+create index if not exists reservations_subject_idx    on reservations (subject);
+create index if not exists reservations_batch_idx      on reservations (batch_id);
+create index if not exists reservations_created_at_idx on reservations (created_at desc);
 -- the conflict lookup: same machine, same day, active states
-create index if not exists bookings_conflict_idx   on bookings (computer_id, booking_date, status);
+create index if not exists reservations_conflict_idx   on reservations (computer_id, reservation_date, status);
 
 -- ---------------------------------------------------------------------
 -- schedules (recurring laboratory reservations / class blocks)
@@ -255,7 +255,7 @@ create table if not exists system_settings (
 );
 
 insert into system_settings (key, value, description) values
-  ('booking', '{"max_active_per_user":3,"max_hours_per_booking":4,"advance_days":14,"auto_approve_faculty":true,"auto_approve_student":false}', 'Booking policy limits'),
+  ('reservation', '{"max_active_per_user":3,"max_hours_per_reservation":4,"advance_days":14,"auto_approve_faculty":true,"auto_approve_student":false}', 'Reservation policy limits'),
   ('energy',  '{"rate_per_kwh":11.5,"currency":"PHP"}', 'Energy tariff used for cost estimates'),
   ('general', '{"site_name":"SMARTLAB","offline_after_seconds":120}', 'General system configuration')
 on conflict (key) do nothing;
@@ -273,7 +273,7 @@ $fn$ language plpgsql;
 do $trg$
 declare t text;
 begin
-  foreach t in array array['users','laboratories','computers','computer_status','bookings','schedules']
+  foreach t in array array['users','laboratories','computers','computer_status','reservations','schedules']
   loop
     execute format('drop trigger if exists trg_%1$s_updated_at on %1$s', t);
     execute format('create trigger trg_%1$s_updated_at before update on %1$s for each row execute function set_updated_at()', t);
@@ -290,7 +290,7 @@ alter table users           enable row level security;
 alter table laboratories    enable row level security;
 alter table computers       enable row level security;
 alter table computer_status enable row level security;
-alter table bookings        enable row level security;
+alter table reservations        enable row level security;
 alter table schedules       enable row level security;
 alter table energy_readings enable row level security;
 alter table notifications   enable row level security;

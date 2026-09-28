@@ -27,7 +27,7 @@ export const TABLES = {
   laboratories: 'laboratories',
   computers: 'computers',
   computerStatus: 'computer_status',
-  bookings: 'bookings',
+  reservations: 'reservations',
   schedules: 'schedules',
   energyReadings: 'energy_readings',
   notifications: 'notifications',

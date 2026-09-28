@@ -2,7 +2,7 @@
  * Runs a Zod schema against part of the request and replaces it with the
  * parsed result, so controllers only ever see validated, coerced data.
  *
- *   router.post('/', validate(createBookingSchema), handler)
+ *   router.post('/', validate(createReservationSchema), handler)
  */
 export function validate(schema, source = 'body') {
   return function runValidation(req, _res, next) {

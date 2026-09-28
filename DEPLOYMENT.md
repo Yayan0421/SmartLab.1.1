@@ -13,12 +13,12 @@ router. That is a property of the protocol, not of this code.
 
 So the server must sit **on the same network as the laboratory PCs** for
 "Power on" to work. Everything else — shut down, restart, lock, messages,
-screenshots, bookings, the kiosk — works either way, because the agents
+screenshots, reservations, the kiosk — works either way, because the agents
 poll outward and do not need to be reachable.
 
 | Feature | On-premises | Cloud |
 | --- | --- | --- |
-| Bookings, users, reports | works | works |
+| Reservations, users, reports | works | works |
 | Kiosk check-in and printing | works | works |
 | Agent heartbeats, screens | works | needs internet in the lab |
 | Shut down / restart / lock | works | works |
@@ -246,7 +246,7 @@ Do these once, before the first public deployment.
   administrator. Empty disables self-registration entirely.
 - **Leave `VITE_KIOSK_KEY` unset.** A `VITE_` variable is compiled into
   the JavaScript every visitor downloads, so setting it publishes the
-  kiosk key — and that key can check bookings in and read cards. Instead
+  kiosk key — and that key can check reservations in and read cards. Instead
   the kiosk stores its key on the device, put there once through
   `/kiosk?key=…`; the page removes it from the address bar immediately.
 - **Never commit `.env` or `certs/`.** Both are in `.gitignore`.
@@ -274,6 +274,6 @@ curl https://<host>/                    # the landing page HTML
 curl https://<host>/api/nope            # a JSON 404, not HTML
 ```
 
-Then, in a browser: sign in, make a booking, approve it as an
+Then, in a browser: sign in, make a reservation, approve it as an
 administrator, and check it in at the kiosk. That path crosses every part
 of the system.

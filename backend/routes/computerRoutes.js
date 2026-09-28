@@ -14,7 +14,7 @@ const router = Router();
 router.use(authenticate);
 
 // Reads are open to every signed-in role: students and faculty need to see
-// what is available before booking.
+// what is available before reservation.
 router.get('/laboratories', computerController.listLaboratories);
 router.get('/stats', computerController.computerStats);
 router.get('/', validate(listComputersQuerySchema, 'query'), computerController.listComputers);

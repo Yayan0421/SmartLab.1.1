@@ -10,13 +10,13 @@ import { timeAgo } from '../../utils/format.js';
 import { DAY_NAMES } from '../../utils/labConstants.js';
 
 const TABS = [
-  { key: 'booking', label: 'Booking rules' },
+  { key: 'reservation', label: 'Reservation rules' },
   { key: 'energy', label: 'Energy' },
   { key: 'laboratories', label: 'Laboratories' },
 ];
 
 export default function AdminSettings() {
-  const [tab, setTab] = useState('booking');
+  const [tab, setTab] = useState('reservation');
 
   return (
     <>
@@ -43,7 +43,7 @@ export default function AdminSettings() {
           </div>
         </div>
 
-        {tab === 'booking' && <BookingSettings />}
+        {tab === 'reservation' && <ReservationSettings />}
         {tab === 'energy' && <EnergySettings />}
         {tab === 'laboratories' && <Laboratories />}
       </div>
@@ -58,9 +58,9 @@ function useSettingsGroup(key) {
   return { value: group?.value, updatedAt: group?.updated_at, loading, error, refetch };
 }
 
-function BookingSettings() {
+function ReservationSettings() {
   const toast = useToast();
-  const { value, updatedAt, loading, error, refetch } = useSettingsGroup('booking');
+  const { value, updatedAt, loading, error, refetch } = useSettingsGroup('reservation');
   const [form, setForm] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -84,9 +84,9 @@ function BookingSettings() {
         return toast.error('The closing time must be after the opening time.');
       }
 
-      await adminService.updateSetting('booking', {
+      await adminService.updateSetting('reservation', {
         max_active_per_user: Number(form.max_active_per_user),
-        max_hours_per_booking: Number(form.max_hours_per_booking),
+        max_hours_per_reservation: Number(form.max_hours_per_reservation),
         advance_days: Number(form.advance_days),
         auto_approve_faculty: Boolean(form.auto_approve_faculty),
         auto_approve_student: Boolean(form.auto_approve_student),
@@ -97,7 +97,7 @@ function BookingSettings() {
         open_time: form.open_time,
         close_time: form.close_time,
       });
-      toast.success('Booking rules saved.');
+      toast.success('Reservation rules saved.');
       refetch();
     } catch (err) {
       toast.error(err.message);
@@ -109,8 +109,8 @@ function BookingSettings() {
   return (
     <form className="card-body stack" onSubmit={save}>
       <div className="alert alert-info">
-        These rules are enforced on the server for every booking request, so changing them here
-        applies to the API as well as the booking form.
+        These rules are enforced on the server for every reservation request, so changing them here
+        applies to the API as well as the reservation form.
       </div>
 
       {/* Which days and hours the laboratory is open. */}
@@ -141,7 +141,7 @@ function BookingSettings() {
           })}
         </div>
         <p className="small muted" style={{ marginTop: '0.4rem' }}>
-          Closed days are never offered on the booking screens, and the API refuses them.
+          Closed days are never offered on the reservation screens, and the API refuses them.
         </p>
       </div>
 
@@ -173,7 +173,7 @@ function BookingSettings() {
 
       <div className="form-grid">
         <div className="field">
-          <label htmlFor="s-active">Maximum active bookings per student</label>
+          <label htmlFor="s-active">Maximum active reservations per student</label>
           <input
             id="s-active"
             type="number"
@@ -224,26 +224,26 @@ function BookingSettings() {
             disabled={busy}
           >
             <option value="on">A class closes the laboratory to students</option>
-            <option value="off">Students may book alongside a class</option>
+            <option value="off">Students may reserve alongside a class</option>
           </select>
         </div>
 
         <div className="field">
-          <label htmlFor="s-hours">Maximum hours per booking</label>
+          <label htmlFor="s-hours">Maximum hours per reservation</label>
           <input
             id="s-hours"
             type="number"
             min="1"
             max="12"
             className="input"
-            value={form.max_hours_per_booking}
-            onChange={(e) => setForm({ ...form, max_hours_per_booking: e.target.value })}
+            value={form.max_hours_per_reservation}
+            onChange={(e) => setForm({ ...form, max_hours_per_reservation: e.target.value })}
             disabled={busy}
           />
         </div>
 
         <div className="field">
-          <label htmlFor="s-advance">How far ahead bookings can be made (days)</label>
+          <label htmlFor="s-advance">How far ahead reservations can be made (days)</label>
           <input
             id="s-advance"
             type="number"
@@ -259,7 +259,7 @@ function BookingSettings() {
 
       <div className="form-grid">
         <div className="field">
-          <label htmlFor="s-faculty">Faculty bookings</label>
+          <label htmlFor="s-faculty">Faculty reservations</label>
           <select
             id="s-faculty"
             className="select"
@@ -273,7 +273,7 @@ function BookingSettings() {
         </div>
 
         <div className="field">
-          <label htmlFor="s-student">Student bookings</label>
+          <label htmlFor="s-student">Student reservations</label>
           <select
             id="s-student"
             className="select"
@@ -292,7 +292,7 @@ function BookingSettings() {
           {updatedAt ? `Last changed ${timeAgo(updatedAt)}` : ''}
         </span>
         <button type="submit" className="btn btn-primary" disabled={busy}>
-          {busy ? 'Saving…' : 'Save booking rules'}
+          {busy ? 'Saving…' : 'Save reservation rules'}
         </button>
       </div>
     </form>

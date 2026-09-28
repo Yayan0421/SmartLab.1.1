@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const BOOKING_STATES = ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED', 'COMPLETED', 'EXPIRED'];
+export const RESERVATION_STATES = ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED', 'COMPLETED', 'EXPIRED'];
 
 /** YYYY-MM-DD, and a real calendar date (rejects 2026-02-31). */
 const dateField = z
@@ -20,10 +20,10 @@ const timeField = z
   .regex(/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/, 'Time must be in HH:MM format.')
   .transform((value) => (value.length === 5 ? `${value}:00` : value));
 
-export const createBookingSchema = z
+export const createReservationSchema = z
   .object({
     computer_id: z.string().uuid('Choose a computer.'),
-    booking_date: dateField,
+    reservation_date: dateField,
     start_time: timeField,
     end_time: timeField,
     purpose: z.string().trim().min(3, 'Describe the purpose briefly.').max(500),
@@ -38,15 +38,15 @@ export const createBookingSchema = z
 /**
  * Reserving several workstations for one session (a class, or group work).
  * Every machine is validated separately on the server before anything is
- * written, so a partial booking can never happen.
+ * written, so a partial reservation can never happen.
  */
-export const createBulkBookingSchema = z
+export const createBulkReservationSchema = z
   .object({
     computer_ids: z
       .array(z.string().uuid())
       .min(1, 'Choose at least one computer.')
       .max(30, 'You cannot reserve more than 30 computers at once.'),
-    booking_date: dateField,
+    reservation_date: dateField,
     start_time: timeField,
     end_time: timeField,
     purpose: z.string().trim().min(3, 'Describe the purpose briefly.').max(500),
@@ -61,10 +61,10 @@ export const decisionSchema = z.object({
   note: z.string().trim().max(500).optional().or(z.literal('')),
 });
 
-export const listBookingsQuerySchema = z.object({
+export const listReservationsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
-  status: z.enum(BOOKING_STATES).optional(),
+  status: z.enum(RESERVATION_STATES).optional(),
   computer_id: z.string().uuid().optional(),
   user_id: z.string().uuid().optional(),
   date_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -72,6 +72,6 @@ export const listBookingsQuerySchema = z.object({
   search: z.string().trim().max(120).optional(),
   subject: z.string().trim().max(120).optional(),
   scope: z.enum(['upcoming', 'past', 'active']).optional(),
-  sort: z.enum(['created_at', 'booking_date']).default('booking_date'),
+  sort: z.enum(['created_at', 'reservation_date']).default('reservation_date'),
   order: z.enum(['asc', 'desc']).default('desc'),
 });

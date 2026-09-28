@@ -359,7 +359,7 @@ export default function AdminUsers() {
         confirmLabel="Deactivate"
         message={
           deactivating
-            ? `${deactivating.full_name} will no longer be able to sign in. Their booking history is kept, and you can reactivate the account later.`
+            ? `${deactivating.full_name} will no longer be able to sign in. Their reservation history is kept, and you can reactivate the account later.`
             : ''
         }
       />

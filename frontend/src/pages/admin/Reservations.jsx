@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import bookingService from '../../services/bookingService.js';
+import reservationService from '../../services/reservationService.js';
 import computerService from '../../services/computerService.js';
 import useFetch from '../../hooks/useFetch.js';
 import useRefreshOnFocus from '../../hooks/useRefreshOnFocus.js';
 import useDebounce from '../../hooks/useDebounce.js';
 import adminService from '../../services/adminService.js';
-import BookingGroups from './BookingGroups.jsx';
+import ReservationGroups from './ReservationGroups.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
 import StatCard from '../../components/StatCard.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
@@ -24,7 +24,7 @@ import {
 
 const STATUSES = ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED', 'COMPLETED', 'EXPIRED'];
 
-export default function AdminBookings() {
+export default function AdminReservations() {
   const toast = useToast();
   // Grouped first: one row per reservation is what an administrator is
   // actually deciding on.
@@ -37,7 +37,7 @@ export default function AdminBookings() {
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
 
-  const [decision, setDecision] = useState(null); // { booking, action }
+  const [decision, setDecision] = useState(null); // { reservation, action }
   const [detail, setDetail] = useState(null);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -46,7 +46,7 @@ export default function AdminBookings() {
 
   const { data, loading, error, refetch } = useFetch(
     () =>
-      bookingService.list({
+      reservationService.list({
         page,
         limit: 20,
         search: debouncedSearch || undefined,
@@ -54,13 +54,13 @@ export default function AdminBookings() {
         computer_id: computerId || undefined,
         date_from: dateFrom || undefined,
         date_to: dateTo || undefined,
-        sort: 'booking_date',
+        sort: 'reservation_date',
         order: 'desc',
       }),
     [page, debouncedSearch, status, computerId, dateFrom, dateTo]
   );
 
-  const { data: statsData, refetch: refetchStats } = useFetch(() => bookingService.stats(), []);
+  const { data: statsData, refetch: refetchStats } = useFetch(() => reservationService.stats(), []);
   const { data: computersData } = useFetch(
     () => computerService.list({ limit: 100 }),
     []
@@ -71,29 +71,29 @@ export default function AdminBookings() {
     refetchStats();
   });
 
-  const bookings = data?.data ?? [];
+  const reservations = data?.data ?? [];
   const stats = statsData?.data;
   const computers = computersData?.data ?? [];
 
-  function openDecision(booking, action) {
-    setDecision({ booking, action });
+  function openDecision(reservation, action) {
+    setDecision({ reservation, action });
     setNote('');
   }
 
   async function submitDecision() {
-    const { booking, action } = decision;
+    const { reservation, action } = decision;
     setBusy(true);
     try {
-      if (action === 'approve') await bookingService.approve(booking.id, note || undefined);
-      else if (action === 'reject') await bookingService.reject(booking.id, note || undefined);
-      else await bookingService.cancel(booking.id);
+      if (action === 'approve') await reservationService.approve(reservation.id, note || undefined);
+      else if (action === 'reject') await reservationService.reject(reservation.id, note || undefined);
+      else await reservationService.cancel(reservation.id);
 
       toast.success(
         action === 'approve'
-          ? 'Booking approved.'
+          ? 'Reservation approved.'
           : action === 'reject'
-            ? 'Booking rejected.'
-            : 'Booking cancelled.'
+            ? 'Reservation rejected.'
+            : 'Reservation cancelled.'
       );
       setDecision(null);
       refetch();
@@ -120,7 +120,7 @@ export default function AdminBookings() {
     <>
       <div className="page-head">
         <div>
-          <h1>Bookings</h1>
+          <h1>Reservations</h1>
           <p className="subtitle">Review, approve and manage every reservation.</p>
         </div>
         {stats?.pending > 0 && (
@@ -165,12 +165,12 @@ export default function AdminBookings() {
               className={`tab ${tab === 'groups' ? 'is-active' : ''}`}
               onClick={() => setTab('groups')}
             >
-              Bookings
+              Reservations
             </button>
             <button
               type="button"
-              className={`tab ${tab === 'bookings' ? 'is-active' : ''}`}
-              onClick={() => setTab('bookings')}
+              className={`tab ${tab === 'reservations' ? 'is-active' : ''}`}
+              onClick={() => setTab('reservations')}
             >
               Every computer
             </button>
@@ -184,10 +184,10 @@ export default function AdminBookings() {
           </div>
         </div>
 
-        {tab === 'groups' && <BookingGroups />}
+        {tab === 'groups' && <ReservationGroups />}
         {tab === 'checkins' && <CheckIns />}
 
-        {tab === 'bookings' && (
+        {tab === 'reservations' && (
         <>
         <div className="toolbar">
           <input
@@ -199,7 +199,7 @@ export default function AdminBookings() {
               setSearch(e.target.value);
               setPage(1);
             }}
-            aria-label="Search bookings"
+            aria-label="Search reservations"
           />
           <select
             className="select"
@@ -260,12 +260,12 @@ export default function AdminBookings() {
           )}
         </div>
 
-        {loading && bookings.length === 0 ? (
-          <Spinner label="Loading bookings…" />
+        {loading && reservations.length === 0 ? (
+          <Spinner label="Loading reservations…" />
         ) : error ? (
           <ErrorState message={error} onRetry={refetch} />
-        ) : bookings.length === 0 ? (
-          <EmptyState icon="🗓" title="No bookings match your filters" />
+        ) : reservations.length === 0 ? (
+          <EmptyState icon="🗓" title="No reservations match your filters" />
         ) : (
           <>
             <div className="table-wrap">
@@ -283,50 +283,50 @@ export default function AdminBookings() {
                   </tr>
                 </thead>
                 <tbody>
-                  {bookings.map((booking) => (
-                    <tr key={booking.id}>
+                  {reservations.map((reservation) => (
+                    <tr key={reservation.id}>
                       <td>
-                        <strong>{booking.user?.full_name ?? '—'}</strong>
+                        <strong>{reservation.user?.full_name ?? '—'}</strong>
                         <div className="small muted">
-                          {ROLE_LABEL[booking.user?.role] ?? booking.user?.role}
+                          {ROLE_LABEL[reservation.user?.role] ?? reservation.user?.role}
                         </div>
                       </td>
                       <td>
-                        <strong>{booking.computer?.name ?? '—'}</strong>
-                        <div className="small muted">{booking.computer?.laboratory?.name ?? ''}</div>
+                        <strong>{reservation.computer?.name ?? '—'}</strong>
+                        <div className="small muted">{reservation.computer?.laboratory?.name ?? ''}</div>
                       </td>
-                      <td className="nowrap">{formatDate(booking.booking_date)}</td>
+                      <td className="nowrap">{formatDate(reservation.reservation_date)}</td>
                       <td className="nowrap">
-                        {formatTimeRange(booking.start_time, booking.end_time)}
+                        {formatTimeRange(reservation.start_time, reservation.end_time)}
                       </td>
                       <td style={{ maxWidth: 170 }}>
-                        <div className="truncate" title={booking.subject}>
-                          {booking.subject || '—'}
+                        <div className="truncate" title={reservation.subject}>
+                          {reservation.subject || '—'}
                         </div>
                       </td>
                       <td style={{ maxWidth: 190 }}>
-                        <div className="truncate" title={booking.purpose}>
-                          {booking.purpose || '—'}
+                        <div className="truncate" title={reservation.purpose}>
+                          {reservation.purpose || '—'}
                         </div>
                       </td>
                       <td>
-                        <StatusBadge value={booking.status} />
+                        <StatusBadge value={reservation.status} />
                       </td>
                       <td className="right nowrap">
                         <button
                           type="button"
                           className="btn btn-ghost btn-sm"
-                          onClick={() => setDetail(booking)}
+                          onClick={() => setDetail(reservation)}
                         >
                           View
                         </button>
-                        {booking.status === 'PENDING' && (
+                        {reservation.status === 'PENDING' && (
                           <>
                             <button
                               type="button"
                               className="btn btn-ghost btn-sm"
                               style={{ color: 'var(--success)' }}
-                              onClick={() => openDecision(booking, 'approve')}
+                              onClick={() => openDecision(reservation, 'approve')}
                             >
                               Approve
                             </button>
@@ -334,18 +334,18 @@ export default function AdminBookings() {
                               type="button"
                               className="btn btn-ghost btn-sm"
                               style={{ color: 'var(--danger)' }}
-                              onClick={() => openDecision(booking, 'reject')}
+                              onClick={() => openDecision(reservation, 'reject')}
                             >
                               Reject
                             </button>
                           </>
                         )}
-                        {booking.status === 'APPROVED' && (
+                        {reservation.status === 'APPROVED' && (
                           <button
                             type="button"
                             className="btn btn-ghost btn-sm"
                             style={{ color: 'var(--danger)' }}
-                            onClick={() => openDecision(booking, 'cancel')}
+                            onClick={() => openDecision(reservation, 'cancel')}
                           >
                             Cancel
                           </button>
@@ -357,7 +357,7 @@ export default function AdminBookings() {
               </table>
             </div>
 
-            <Pagination pagination={data?.pagination} onPageChange={setPage} label="bookings" />
+            <Pagination pagination={data?.pagination} onPageChange={setPage} label="reservations" />
           </>
         )}
         </>
@@ -371,10 +371,10 @@ export default function AdminBookings() {
         onClose={busy ? () => {} : () => setDecision(null)}
         title={
           decision?.action === 'approve'
-            ? 'Approve this booking?'
+            ? 'Approve this reservation?'
             : decision?.action === 'reject'
-              ? 'Reject this booking?'
-              : 'Cancel this booking?'
+              ? 'Reject this reservation?'
+              : 'Cancel this reservation?'
         }
         footer={
           <>
@@ -398,7 +398,7 @@ export default function AdminBookings() {
                   ? 'Approve'
                   : decision?.action === 'reject'
                     ? 'Reject'
-                    : 'Cancel booking'}
+                    : 'Cancel reservation'}
             </button>
           </>
         }
@@ -407,16 +407,16 @@ export default function AdminBookings() {
           <div className="stack">
             <div className="alert alert-info">
               <div>
-                <strong>{decision.booking.user?.full_name}</strong> ·{' '}
-                {decision.booking.computer?.name}
+                <strong>{decision.reservation.user?.full_name}</strong> ·{' '}
+                {decision.reservation.computer?.name}
                 <div className="small">
-                  {formatDate(decision.booking.booking_date)} ·{' '}
-                  {formatTimeRange(decision.booking.start_time, decision.booking.end_time)}
+                  {formatDate(decision.reservation.reservation_date)} ·{' '}
+                  {formatTimeRange(decision.reservation.start_time, decision.reservation.end_time)}
                 </div>
               </div>
             </div>
 
-            <p className="small muted">{decision.booking.purpose}</p>
+            <p className="small muted">{decision.reservation.purpose}</p>
 
             {decision.action !== 'cancel' && (
               <div className="field">
@@ -442,10 +442,10 @@ export default function AdminBookings() {
         )}
       </Modal>
 
-      <Modal open={Boolean(detail)} onClose={() => setDetail(null)} title="Booking details" size="lg">
+      <Modal open={Boolean(detail)} onClose={() => setDetail(null)} title="Reservation details" size="lg">
         {detail && (
           <div className="form-grid">
-            <Detail label="Booking ID" value={detail.id} mono />
+            <Detail label="Reservation ID" value={detail.id} mono />
             <Detail label="Status" value={<StatusBadge value={detail.status} />} />
             <Detail label="User" value={detail.user?.full_name} />
             <Detail label="Role" value={ROLE_LABEL[detail.user?.role]} />
@@ -453,7 +453,7 @@ export default function AdminBookings() {
             <Detail label="Department" value={detail.user?.department} />
             <Detail label="Computer" value={detail.computer?.name} />
             <Detail label="Laboratory" value={detail.computer?.laboratory?.name} />
-            <Detail label="Date" value={formatDate(detail.booking_date)} />
+            <Detail label="Date" value={formatDate(detail.reservation_date)} />
             <Detail label="Time" value={formatTimeRange(detail.start_time, detail.end_time)} />
             <Detail label="Requested" value={formatDateTime(detail.created_at)} />
             <Detail
@@ -478,7 +478,7 @@ export default function AdminBookings() {
 
 /**
  * Receipts issued at the kiosk: who actually turned up, when, and on which
- * machine. A booking says what was promised; this says what happened.
+ * machine. A reservation says what was promised; this says what happened.
  */
 function CheckIns() {
   const [page, setPage] = useState(1);
@@ -557,7 +557,7 @@ function CheckIns() {
                   <th>Receipt</th>
                   <th>Student</th>
                   <th>Computer</th>
-                  <th>Booked</th>
+                  <th>Reserved</th>
                   <th>Checked in</th>
                   <th>Photo</th>
                   <th>Status</th>
@@ -573,7 +573,7 @@ function CheckIns() {
                     </td>
                     <td>{row.computer?.name}</td>
                     <td className="nowrap small">
-                      {formatDate(row.booking_date)}
+                      {formatDate(row.reservation_date)}
                       <div className="muted">
                         {formatTimeRange(row.start_time, row.end_time)}
                       </div>

@@ -14,7 +14,7 @@ import env from './config/env.js';
 import { assertDatabaseConnection } from './config/database.js';
 import apiRoutes from './routes/index.js';
 import { notFoundHandler, errorHandler } from './middleware/errorMiddleware.js';
-import { sweepStaleBookings } from './services/bookingService.js';
+import { sweepStaleReservations } from './services/reservationService.js';
 import { markStaleComputersOffline } from './controllers/monitoringController.js';
 import { expireStaleCommands } from './services/commandService.js';
 import { expireNoShows, releaseFinishedSessions } from './controllers/kioskController.js';
@@ -114,10 +114,10 @@ if (hasClient) {
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-/** Background maintenance: expire past bookings, mark silent agents offline. */
+/** Background maintenance: expire past reservations, mark silent agents offline. */
 function startBackgroundJobs() {
   const runSweep = () => {
-    sweepStaleBookings().catch((e) => console.error('[sweep]', e.message));
+    sweepStaleReservations().catch((e) => console.error('[sweep]', e.message));
     markStaleComputersOffline().catch((e) => console.error('[offline-sweep]', e.message));
     expireStaleCommands().catch((e) => console.error('[command-sweep]', e.message));
     expireNoShows().catch((e) => console.error('[no-show-sweep]', e.message));

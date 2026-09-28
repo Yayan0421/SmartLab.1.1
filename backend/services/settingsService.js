@@ -1,9 +1,9 @@
 import { supabase, TABLES } from '../config/database.js';
 
 const DEFAULTS = {
-  booking: {
+  reservation: {
     max_active_per_user: 3,
-    max_hours_per_booking: 4,
+    max_hours_per_reservation: 4,
     advance_days: 14,
     auto_approve_faculty: true,
     auto_approve_student: false,
@@ -17,10 +17,10 @@ const DEFAULTS = {
     student_max_hours_per_day: 2,
     student_max_computers: 1,
     // A faculty reservation takes the room: while it runs, students cannot
-    // book any machine in that laboratory.
+    // reserve any machine in that laboratory.
     faculty_priority: true,
     // How long after the start time somebody may still check in at the
-    // kiosk. Past this the booking expires and the machine is released.
+    // kiosk. Past this the reservation expires and the machine is released.
     late_grace_minutes: 30,
   },
   energy: { rate_per_kwh: 11.5, currency: 'PHP' },
@@ -31,7 +31,7 @@ const CACHE_TTL_MS = 30_000;
 const cache = new Map();
 
 /**
- * Settings are read on nearly every booking, so they are cached briefly.
+ * Settings are read on nearly every reservation, so they are cached briefly.
  * Writes clear the cache so an admin change takes effect right away.
  */
 export async function getSetting(key) {

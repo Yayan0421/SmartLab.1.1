@@ -7,18 +7,18 @@ import { recordAudit } from '../services/auditService.js';
 import { notify, notifyAdmins } from '../services/notificationService.js';
 import { isAdminLike } from '../utils/roles.js';
 import {
-  validateBookingRequest,
+  validateReservationRequest,
   resolveInitialStatus,
   ACTIVE_STATES,
-} from '../services/bookingService.js';
+} from '../services/reservationService.js';
 import { getSetting } from '../services/settingsService.js';
 import { labToday, labClock } from '../utils/labTime.js';
 
-const BOOKING_SELECT = `
-  id, user_id, computer_id, booking_date, start_time, end_time, purpose, subject, batch_id, status,
+const RESERVATION_SELECT = `
+  id, user_id, computer_id, reservation_date, start_time, end_time, purpose, subject, batch_id, status,
   approved_by, approved_at, decision_note, cancelled_at, created_at, updated_at,
   checked_in_at, checked_out_at, receipt_no,
-  user:users!bookings_user_id_fkey ( id, full_name, email, role, department, course ),
+  user:users!reservations_user_id_fkey ( id, full_name, email, role, department, course ),
   computer:computers ( id, name, computer_number, status, laboratory:laboratories ( id, name ) )
 `;
 
@@ -30,24 +30,24 @@ const flatten = (row) => ({
 
 const todayISO = labToday;
 
-/** Shared list builder used by both the admin list and "my bookings". */
-async function queryBookings(req, { forceUserId = null } = {}) {
+/** Shared list builder used by both the admin list and "my reservations". */
+async function queryReservations(req, { forceUserId = null } = {}) {
   const { page, limit, status, computer_id, user_id, date_from, date_to, search, scope, sort, order } =
     req.query;
   const { from, to } = getPagination({ page, limit });
 
-  let query = supabase.from(TABLES.bookings).select(BOOKING_SELECT, { count: 'exact' });
+  let query = supabase.from(TABLES.reservations).select(RESERVATION_SELECT, { count: 'exact' });
 
   if (forceUserId) query = query.eq('user_id', forceUserId);
   else if (user_id) query = query.eq('user_id', user_id);
 
   if (status) query = query.eq('status', status);
   if (computer_id) query = query.eq('computer_id', computer_id);
-  if (date_from) query = query.gte('booking_date', date_from);
-  if (date_to) query = query.lte('booking_date', date_to);
+  if (date_from) query = query.gte('reservation_date', date_from);
+  if (date_to) query = query.lte('reservation_date', date_to);
 
   if (scope === 'upcoming') {
-    query = query.gte('booking_date', todayISO()).in('status', ACTIVE_STATES);
+    query = query.gte('reservation_date', todayISO()).in('status', ACTIVE_STATES);
   } else if (scope === 'past') {
     query = query.in('status', ['COMPLETED', 'REJECTED', 'CANCELLED', 'EXPIRED']);
   } else if (scope === 'active') {
@@ -71,55 +71,55 @@ async function queryBookings(req, { forceUserId = null } = {}) {
   return paginated((data ?? []).map(flatten), count, { page, limit });
 }
 
-/** GET /api/bookings — admin sees everything. */
-export const listBookings = asyncHandler(async (req, res) => {
-  const result = await queryBookings(req);
+/** GET /api/reservations — admin sees everything. */
+export const listReservations = asyncHandler(async (req, res) => {
+  const result = await queryReservations(req);
   res.json({ success: true, ...result });
 });
 
-/** GET /api/bookings/my — scoped to the caller, whatever they pass in. */
-export const listMyBookings = asyncHandler(async (req, res) => {
-  const result = await queryBookings(req, { forceUserId: req.user.id });
+/** GET /api/reservations/my — scoped to the caller, whatever they pass in. */
+export const listMyReservations = asyncHandler(async (req, res) => {
+  const result = await queryReservations(req, { forceUserId: req.user.id });
   res.json({ success: true, ...result });
 });
 
-/** GET /api/bookings/summary — counters for the faculty/student dashboard. */
-export const myBookingSummary = asyncHandler(async (req, res) => {
+/** GET /api/reservations/summary — counters for the faculty/student dashboard. */
+export const myReservationSummary = asyncHandler(async (req, res) => {
   const userId = req.user.id;
   const today = todayISO();
 
   const [active, upcoming, completed, pending] = await Promise.all([
     supabase
-      .from(TABLES.bookings)
+      .from(TABLES.reservations)
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userId)
       .in('status', ACTIVE_STATES)
-      .gte('booking_date', today),
+      .gte('reservation_date', today),
     supabase
-      .from(TABLES.bookings)
+      .from(TABLES.reservations)
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userId)
       .eq('status', 'APPROVED')
-      .gt('booking_date', today),
+      .gt('reservation_date', today),
     supabase
-      .from(TABLES.bookings)
+      .from(TABLES.reservations)
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userId)
       .eq('status', 'COMPLETED'),
     supabase
-      .from(TABLES.bookings)
+      .from(TABLES.reservations)
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userId)
       .eq('status', 'PENDING'),
   ]);
 
   const { data: next } = await supabase
-    .from(TABLES.bookings)
-    .select(BOOKING_SELECT)
+    .from(TABLES.reservations)
+    .select(RESERVATION_SELECT)
     .eq('user_id', userId)
     .in('status', ACTIVE_STATES)
-    .gte('booking_date', today)
-    .order('booking_date', { ascending: true })
+    .gte('reservation_date', today)
+    .order('reservation_date', { ascending: true })
     .order('start_time', { ascending: true })
     .limit(5);
 
@@ -135,33 +135,33 @@ export const myBookingSummary = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /api/bookings/stats — admin dashboard counters. */
-export const bookingStats = asyncHandler(async (_req, res) => {
+/** GET /api/reservations/stats — admin dashboard counters. */
+export const reservationStats = asyncHandler(async (_req, res) => {
   const today = todayISO();
 
   const [pending, todayCount, approved, total] = await Promise.all([
-    supabase.from(TABLES.bookings).select('id', { count: 'exact', head: true }).eq('status', 'PENDING'),
-    supabase.from(TABLES.bookings).select('id', { count: 'exact', head: true }).eq('booking_date', today),
+    supabase.from(TABLES.reservations).select('id', { count: 'exact', head: true }).eq('status', 'PENDING'),
+    supabase.from(TABLES.reservations).select('id', { count: 'exact', head: true }).eq('reservation_date', today),
     supabase
-      .from(TABLES.bookings)
+      .from(TABLES.reservations)
       .select('id', { count: 'exact', head: true })
       .eq('status', 'APPROVED')
-      .gte('booking_date', today),
-    supabase.from(TABLES.bookings).select('id', { count: 'exact', head: true }),
+      .gte('reservation_date', today),
+    supabase.from(TABLES.reservations).select('id', { count: 'exact', head: true }),
   ]);
 
-  // Booking volume for the last 7 days, grouped in JS over a bounded window.
+  // Reservation volume for the last 7 days, grouped in JS over a bounded window.
   const weekAgo = labToday(new Date(Date.now() - 6 * 86_400_000));
   const { data: recent } = await supabase
-    .from(TABLES.bookings)
-    .select('booking_date, status')
-    .gte('booking_date', weekAgo)
-    .lte('booking_date', today);
+    .from(TABLES.reservations)
+    .select('reservation_date, status')
+    .gte('reservation_date', weekAgo)
+    .lte('reservation_date', today);
 
   const series = [];
   for (let i = 6; i >= 0; i -= 1) {
     const day = labToday(new Date(Date.now() - i * 86_400_000));
-    const rows = (recent ?? []).filter((r) => r.booking_date === day);
+    const rows = (recent ?? []).filter((r) => r.reservation_date === day);
     series.push({
       date: day,
       total: rows.length,
@@ -182,37 +182,37 @@ export const bookingStats = asyncHandler(async (_req, res) => {
   });
 });
 
-/** GET /api/bookings/:id — owner or admin only. */
-export const getBooking = asyncHandler(async (req, res) => {
+/** GET /api/reservations/:id — owner or admin only. */
+export const getReservation = asyncHandler(async (req, res) => {
   const { data, error } = await supabase
-    .from(TABLES.bookings)
-    .select(BOOKING_SELECT)
+    .from(TABLES.reservations)
+    .select(RESERVATION_SELECT)
     .eq('id', req.params.id)
     .maybeSingle();
 
   if (error) throw ApiError.internal();
-  if (!data) throw ApiError.notFound('That booking could not be found.');
+  if (!data) throw ApiError.notFound('That reservation could not be found.');
 
   if (!isAdminLike(req.user.role) && data.user_id !== req.user.id) {
-    throw ApiError.forbidden('You can only view your own bookings.');
+    throw ApiError.forbidden('You can only view your own reservations.');
   }
 
   res.json({ success: true, data: flatten(data) });
 });
 
-/** POST /api/bookings */
-export const createBooking = asyncHandler(async (req, res) => {
+/** POST /api/reservations */
+export const createReservation = asyncHandler(async (req, res) => {
   const payload = req.body;
 
-  const { computer, policy } = await validateBookingRequest({ user: req.user, payload });
+  const { computer, policy } = await validateReservationRequest({ user: req.user, payload });
   const status = resolveInitialStatus(req.user.role, policy);
 
   const { data, error } = await supabase
-    .from(TABLES.bookings)
+    .from(TABLES.reservations)
     .insert({
       user_id: req.user.id,
       computer_id: payload.computer_id,
-      booking_date: payload.booking_date,
+      reservation_date: payload.reservation_date,
       start_time: payload.start_time,
       end_time: payload.end_time,
       purpose: payload.purpose,
@@ -221,143 +221,143 @@ export const createBooking = asyncHandler(async (req, res) => {
       approved_by: status === 'APPROVED' ? req.user.id : null,
       approved_at: status === 'APPROVED' ? new Date().toISOString() : null,
     })
-    .select(BOOKING_SELECT)
+    .select(RESERVATION_SELECT)
     .single();
 
   if (error) throw ApiError.internal();
 
   await recordAudit(req, {
-    action: 'booking.create',
-    entity: 'bookings',
+    action: 'reservation.create',
+    entity: 'reservations',
     entityId: data.id,
     details: { computer: computer.name, status },
   });
 
   if (status === 'PENDING') {
     await notifyAdmins({
-      title: 'New booking request',
-      message: `${req.user.full_name} requested ${computer.name} on ${payload.booking_date} (${payload.start_time.slice(0, 5)}-${payload.end_time.slice(0, 5)}).`,
-      type: 'booking',
-      link: '/admin/bookings',
+      title: 'New reservation request',
+      message: `${req.user.full_name} requested ${computer.name} on ${payload.reservation_date} (${payload.start_time.slice(0, 5)}-${payload.end_time.slice(0, 5)}).`,
+      type: 'reservation',
+      link: '/admin/reservations',
     });
   }
 
   await notify(req.user.id, {
-    title: status === 'APPROVED' ? 'Booking confirmed' : 'Booking submitted',
+    title: status === 'APPROVED' ? 'Reservation confirmed' : 'Reservation submitted',
     message:
       status === 'APPROVED'
-        ? `${computer.name} is reserved for you on ${payload.booking_date}.`
+        ? `${computer.name} is reserved for you on ${payload.reservation_date}.`
         : `Your request for ${computer.name} is awaiting approval.`,
-    type: 'booking',
+    type: 'reservation',
   });
 
   res.status(201).json({ success: true, data: flatten(data) });
 });
 
-/** Loads a booking and checks it is in a state the requested action allows. */
+/** Loads a reservation and checks it is in a state the requested action allows. */
 async function loadForDecision(id, allowedStates) {
   const { data, error } = await supabase
-    .from(TABLES.bookings)
-    .select(BOOKING_SELECT)
+    .from(TABLES.reservations)
+    .select(RESERVATION_SELECT)
     .eq('id', id)
     .maybeSingle();
 
   if (error) throw ApiError.internal();
-  if (!data) throw ApiError.notFound('That booking could not be found.');
+  if (!data) throw ApiError.notFound('That reservation could not be found.');
   if (!allowedStates.includes(data.status)) {
-    throw ApiError.conflict(`This booking is ${data.status.toLowerCase()} and can no longer be changed.`);
+    throw ApiError.conflict(`This reservation is ${data.status.toLowerCase()} and can no longer be changed.`);
   }
   return flatten(data);
 }
 
-/** PATCH /api/bookings/:id/approve — admin only. */
-export const approveBooking = asyncHandler(async (req, res) => {
-  const booking = await loadForDecision(req.params.id, ['PENDING']);
+/** PATCH /api/reservations/:id/approve — admin only. */
+export const approveReservation = asyncHandler(async (req, res) => {
+  const reservation = await loadForDecision(req.params.id, ['PENDING']);
 
-  // Re-check for conflicts: another booking may have been approved for the
+  // Re-check for conflicts: another reservation may have been approved for the
   // same slot while this one sat in the queue.
-  await validateBookingRequest({
-    user: { id: booking.user_id, role: 'admin' },
+  await validateReservationRequest({
+    user: { id: reservation.user_id, role: 'admin' },
     payload: {
-      computer_id: booking.computer_id,
-      booking_date: booking.booking_date,
-      start_time: booking.start_time,
-      end_time: booking.end_time,
+      computer_id: reservation.computer_id,
+      reservation_date: reservation.reservation_date,
+      start_time: reservation.start_time,
+      end_time: reservation.end_time,
     },
-    excludeBookingId: booking.id,
+    excludeReservationId: reservation.id,
   });
 
   const { data, error } = await supabase
-    .from(TABLES.bookings)
+    .from(TABLES.reservations)
     .update({
       status: 'APPROVED',
       approved_by: req.user.id,
       approved_at: new Date().toISOString(),
       decision_note: req.body?.note || null,
     })
-    .eq('id', booking.id)
+    .eq('id', reservation.id)
     .eq('status', 'PENDING')
-    .select(BOOKING_SELECT)
+    .select(RESERVATION_SELECT)
     .maybeSingle();
 
   if (error) throw ApiError.internal();
-  if (!data) throw ApiError.conflict('This booking was already decided by someone else.');
+  if (!data) throw ApiError.conflict('This reservation was already decided by someone else.');
 
-  await recordAudit(req, { action: 'booking.approve', entity: 'bookings', entityId: booking.id });
-  await notify(booking.user_id, {
-    title: 'Booking approved',
-    message: `${booking.computer?.name ?? 'Your computer'} is reserved for you on ${booking.booking_date}.`,
+  await recordAudit(req, { action: 'reservation.approve', entity: 'reservations', entityId: reservation.id });
+  await notify(reservation.user_id, {
+    title: 'Reservation approved',
+    message: `${reservation.computer?.name ?? 'Your computer'} is reserved for you on ${reservation.reservation_date}.`,
     type: 'success',
   });
 
   res.json({ success: true, data: flatten(data) });
 });
 
-/** PATCH /api/bookings/:id/reject — admin only. */
-export const rejectBooking = asyncHandler(async (req, res) => {
-  const booking = await loadForDecision(req.params.id, ['PENDING']);
+/** PATCH /api/reservations/:id/reject — admin only. */
+export const rejectReservation = asyncHandler(async (req, res) => {
+  const reservation = await loadForDecision(req.params.id, ['PENDING']);
 
   const { data, error } = await supabase
-    .from(TABLES.bookings)
+    .from(TABLES.reservations)
     .update({
       status: 'REJECTED',
       approved_by: req.user.id,
       approved_at: new Date().toISOString(),
       decision_note: req.body?.note || null,
     })
-    .eq('id', booking.id)
+    .eq('id', reservation.id)
     .eq('status', 'PENDING')
-    .select(BOOKING_SELECT)
+    .select(RESERVATION_SELECT)
     .maybeSingle();
 
   if (error) throw ApiError.internal();
-  if (!data) throw ApiError.conflict('This booking was already decided by someone else.');
+  if (!data) throw ApiError.conflict('This reservation was already decided by someone else.');
 
   await recordAudit(req, {
-    action: 'booking.reject',
-    entity: 'bookings',
-    entityId: booking.id,
+    action: 'reservation.reject',
+    entity: 'reservations',
+    entityId: reservation.id,
     details: { note: req.body?.note || null },
   });
 
-  await notify(booking.user_id, {
-    title: 'Booking rejected',
+  await notify(reservation.user_id, {
+    title: 'Reservation rejected',
     message: req.body?.note
-      ? `Your booking on ${booking.booking_date} was rejected: ${req.body.note}`
-      : `Your booking on ${booking.booking_date} was rejected.`,
+      ? `Your reservation on ${reservation.reservation_date} was rejected: ${req.body.note}`
+      : `Your reservation on ${reservation.reservation_date} was rejected.`,
     type: 'warning',
   });
 
   res.json({ success: true, data: flatten(data) });
 });
 
-/** PATCH /api/bookings/:id/cancel — owner or admin. */
-export const cancelBooking = asyncHandler(async (req, res) => {
-  const booking = await loadForDecision(req.params.id, ['PENDING', 'APPROVED']);
+/** PATCH /api/reservations/:id/cancel — owner or admin. */
+export const cancelReservation = asyncHandler(async (req, res) => {
+  const reservation = await loadForDecision(req.params.id, ['PENDING', 'APPROVED']);
 
-  const isOwner = booking.user_id === req.user.id;
+  const isOwner = reservation.user_id === req.user.id;
   if (!isOwner && !isAdminLike(req.user.role)) {
-    throw ApiError.forbidden('You can only cancel your own bookings.');
+    throw ApiError.forbidden('You can only cancel your own reservations.');
   }
 
   // A slot that has already started cannot be cancelled by its owner; an
@@ -365,28 +365,28 @@ export const cancelBooking = asyncHandler(async (req, res) => {
   if (isOwner && !isAdminLike(req.user.role)) {
     const today = todayISO();
     const clock = labClock();
-    if (booking.booking_date < today || (booking.booking_date === today && booking.start_time <= clock)) {
-      throw ApiError.conflict('This booking has already started and can no longer be cancelled.');
+    if (reservation.reservation_date < today || (reservation.reservation_date === today && reservation.start_time <= clock)) {
+      throw ApiError.conflict('This reservation has already started and can no longer be cancelled.');
     }
   }
 
   const { data, error } = await supabase
-    .from(TABLES.bookings)
+    .from(TABLES.reservations)
     .update({ status: 'CANCELLED', cancelled_at: new Date().toISOString() })
-    .eq('id', booking.id)
+    .eq('id', reservation.id)
     .in('status', ['PENDING', 'APPROVED'])
-    .select(BOOKING_SELECT)
+    .select(RESERVATION_SELECT)
     .maybeSingle();
 
   if (error) throw ApiError.internal();
-  if (!data) throw ApiError.conflict('This booking is no longer active.');
+  if (!data) throw ApiError.conflict('This reservation is no longer active.');
 
-  await recordAudit(req, { action: 'booking.cancel', entity: 'bookings', entityId: booking.id });
+  await recordAudit(req, { action: 'reservation.cancel', entity: 'reservations', entityId: reservation.id });
 
   if (!isOwner) {
-    await notify(booking.user_id, {
-      title: 'Booking cancelled',
-      message: `An administrator cancelled your booking on ${booking.booking_date}.`,
+    await notify(reservation.user_id, {
+      title: 'Reservation cancelled',
+      message: `An administrator cancelled your reservation on ${reservation.reservation_date}.`,
       type: 'warning',
     });
   }
@@ -396,14 +396,14 @@ export const cancelBooking = asyncHandler(async (req, res) => {
 
 
 /**
- * GET /api/bookings/policy
+ * GET /api/reservations/policy
  *
- * The booking rules in force, for any signed-in user. The booking screens
+ * The reservation rules in force, for any signed-in user. The reservation screens
  * build their day tabs and time slots from this, so the form can never
  * offer a slot the server would reject.
  */
 export const getPolicy = asyncHandler(async (_req, res) => {
-  const policy = await getSetting('booking');
+  const policy = await getSetting('reservation');
   res.json({
     success: true,
     data: {
@@ -412,7 +412,7 @@ export const getPolicy = asyncHandler(async (_req, res) => {
       close_time: policy.close_time ?? '17:00',
       advance_days: policy.advance_days,
       max_active_per_user: policy.max_active_per_user,
-      max_hours_per_booking: policy.max_hours_per_booking,
+      max_hours_per_reservation: policy.max_hours_per_reservation,
       student_max_hours_per_day: policy.student_max_hours_per_day ?? 2,
       student_max_computers: policy.student_max_computers ?? 1,
       faculty_priority: policy.faculty_priority !== false,
@@ -421,10 +421,10 @@ export const getPolicy = asyncHandler(async (_req, res) => {
 });
 
 /**
- * GET /api/bookings/schedule?date=YYYY-MM-DD
+ * GET /api/reservations/schedule?date=YYYY-MM-DD
  *
  * Everything the laboratory schedule grid needs in one request: the list of
- * workstations and the day's active bookings. The grid itself is assembled
+ * workstations and the day's active reservations. The grid itself is assembled
  * in the browser, which keeps this endpoint cheap and cacheable.
  */
 export const getSchedule = asyncHandler(async (req, res) => {
@@ -433,24 +433,24 @@ export const getSchedule = asyncHandler(async (req, res) => {
     throw ApiError.badRequest('Provide a date as YYYY-MM-DD.');
   }
 
-  const [{ data: computers, error: computerError }, { data: bookings, error: bookingError }] =
+  const [{ data: computers, error: computerError }, { data: reservations, error: reservationError }] =
     await Promise.all([
       supabase
         .from(TABLES.computers)
         .select('id, name, computer_number, status, is_bookable, laboratory:laboratories ( id, name )')
         .order('computer_number', { ascending: true }),
       supabase
-        .from(TABLES.bookings)
+        .from(TABLES.reservations)
         .select(`
           id, computer_id, user_id, start_time, end_time, status, subject, purpose,
-          user:users!bookings_user_id_fkey ( role, full_name ),
+          user:users!reservations_user_id_fkey ( role, full_name ),
           computer:computers ( laboratory_id )
         `)
-        .eq('booking_date', date)
+        .eq('reservation_date', date)
         .in('status', ACTIVE_STATES),
     ]);
 
-  if (computerError || bookingError) throw ApiError.internal();
+  if (computerError || reservationError) throw ApiError.internal();
 
   res.json({
     success: true,
@@ -462,7 +462,7 @@ export const getSchedule = asyncHandler(async (req, res) => {
       })),
       // `mine` highlights the caller's own reservations; `by_faculty` lets
       // the grid close a whole row when a class has the room.
-      bookings: (bookings ?? []).map((b) => {
+      reservations: (reservations ?? []).map((b) => {
         const holder = Array.isArray(b.user) ? b.user[0] : b.user;
         const machine = Array.isArray(b.computer) ? b.computer[0] : b.computer;
         return {
@@ -483,17 +483,17 @@ export const getSchedule = asyncHandler(async (req, res) => {
 });
 
 /**
- * POST /api/bookings/bulk
+ * POST /api/reservations/bulk
  *
  * Reserves several workstations for the same slot, for a class or group.
  * Every machine is validated first; only if all of them pass is anything
  * written, so the caller never ends up with a half-made reservation.
  */
-export const createBulkBooking = asyncHandler(async (req, res) => {
-  const { computer_ids, booking_date, start_time, end_time, purpose, subject } = req.body;
+export const createBulkReservation = asyncHandler(async (req, res) => {
+  const { computer_ids, reservation_date, start_time, end_time, purpose, subject } = req.body;
   const unique = [...new Set(computer_ids)];
 
-  const policy = await getSetting('booking');
+  const policy = await getSetting('reservation');
 
   // Students work on one machine; reserving a set of them is a faculty
   // action, for running a class.
@@ -502,8 +502,8 @@ export const createBulkBooking = asyncHandler(async (req, res) => {
     if (unique.length > maxComputers) {
       throw ApiError.conflict(
         maxComputers === 1
-          ? 'Students may book one computer at a time.'
-          : `Students may book up to ${maxComputers} computers at a time.`
+          ? 'Students may reserve one computer at a time.'
+          : `Students may reserve up to ${maxComputers} computers at a time.`
       );
     }
   }
@@ -512,15 +512,15 @@ export const createBulkBooking = asyncHandler(async (req, res) => {
   // to students only — faculty reserve whole rooms for classes.
   if (req.user.role === 'student') {
     const { count } = await supabase
-      .from(TABLES.bookings)
+      .from(TABLES.reservations)
       .select('id', { count: 'exact', head: true })
       .eq('user_id', req.user.id)
       .in('status', ACTIVE_STATES)
-      .gte('booking_date', todayISO());
+      .gte('reservation_date', todayISO());
 
     if ((count ?? 0) + unique.length > policy.max_active_per_user) {
       throw ApiError.conflict(
-        `You can hold ${policy.max_active_per_user} active bookings at a time. ` +
+        `You can hold ${policy.max_active_per_user} active reservations at a time. ` +
           `You already have ${count ?? 0}, so you can reserve ` +
           `${Math.max(0, policy.max_active_per_user - (count ?? 0))} more.`
       );
@@ -530,9 +530,9 @@ export const createBulkBooking = asyncHandler(async (req, res) => {
   // Validate every machine before writing any of them.
   const checked = [];
   for (const computer_id of unique) {
-    const { computer } = await validateBookingRequest({
+    const { computer } = await validateReservationRequest({
       user: req.user,
-      payload: { computer_id, booking_date, start_time, end_time },
+      payload: { computer_id, reservation_date, start_time, end_time },
       skipUserLimit: true,
       skipSelfOverlap: true,
     });
@@ -542,17 +542,17 @@ export const createBulkBooking = asyncHandler(async (req, res) => {
   const status = resolveInitialStatus(req.user.role, policy);
   const now = new Date().toISOString();
   // One identity for the whole reservation, so 25 machines read as one
-  // booking in the administrator's list.
+  // reservation in the administrator's list.
   const batchId = randomUUID();
 
   const { data, error } = await supabase
-    .from(TABLES.bookings)
+    .from(TABLES.reservations)
     .insert(
       unique.map((computer_id) => ({
         user_id: req.user.id,
         computer_id,
         batch_id: batchId,
-        booking_date,
+        reservation_date,
         start_time,
         end_time,
         purpose,
@@ -562,34 +562,34 @@ export const createBulkBooking = asyncHandler(async (req, res) => {
         approved_at: status === 'APPROVED' ? now : null,
       }))
     )
-    .select(BOOKING_SELECT);
+    .select(RESERVATION_SELECT);
 
   if (error) throw ApiError.internal();
 
   const names = checked.map((c) => c.name).join(', ');
 
   await recordAudit(req, {
-    action: 'booking.create_bulk',
-    entity: 'bookings',
+    action: 'reservation.create_bulk',
+    entity: 'reservations',
     details: { count: unique.length, subject, computers: names },
   });
 
   if (status === 'PENDING') {
     await notifyAdmins({
-      title: 'New booking request',
-      message: `${req.user.full_name} requested ${unique.length} computer(s) on ${booking_date} for ${subject}.`,
-      type: 'booking',
-      link: '/admin/bookings',
+      title: 'New reservation request',
+      message: `${req.user.full_name} requested ${unique.length} computer(s) on ${reservation_date} for ${subject}.`,
+      type: 'reservation',
+      link: '/admin/reservations',
     });
   }
 
   await notify(req.user.id, {
-    title: status === 'APPROVED' ? 'Booking confirmed' : 'Booking submitted',
+    title: status === 'APPROVED' ? 'Reservation confirmed' : 'Reservation submitted',
     message:
       status === 'APPROVED'
-        ? `${names} reserved on ${booking_date}.`
+        ? `${names} reserved on ${reservation_date}.`
         : `Your request for ${names} is awaiting approval.`,
-    type: 'booking',
+    type: 'reservation',
   });
 
   res.status(201).json({ success: true, data: (data ?? []).map(flatten) });
@@ -597,25 +597,25 @@ export const createBulkBooking = asyncHandler(async (req, res) => {
 
 
 /**
- * GET /api/bookings/groups
+ * GET /api/reservations/groups
  *
  * The administrator's list, with a multi-computer reservation shown as one
  * entry instead of thirty. Rows sharing a batch_id collapse into a group;
- * a single booking is a group of one.
+ * a single reservation is a group of one.
  *
  * Grouping happens here rather than in SQL because the shape the screen
  * needs — a parent row with its machines nested — is not a shape Postgres
  * returns cheaply. The query is bounded by status and date so the set being
  * grouped stays small.
  */
-export const listBookingGroups = asyncHandler(async (req, res) => {
+export const listReservationGroups = asyncHandler(async (req, res) => {
   const { page = 1, limit = 20, status, date_from, date_to, search } = req.query;
 
-  let query = supabase.from(TABLES.bookings).select(BOOKING_SELECT).limit(1000);
+  let query = supabase.from(TABLES.reservations).select(RESERVATION_SELECT).limit(1000);
 
   if (status) query = query.eq('status', status);
-  if (date_from) query = query.gte('booking_date', date_from);
-  if (date_to) query = query.lte('booking_date', date_to);
+  if (date_from) query = query.gte('reservation_date', date_from);
+  if (date_to) query = query.lte('reservation_date', date_to);
   if (req.query.user_id) query = query.eq('user_id', req.query.user_id);
   if (req.query.subject) query = query.eq('subject', req.query.subject);
   if (search) {
@@ -624,7 +624,7 @@ export const listBookingGroups = asyncHandler(async (req, res) => {
   }
 
   const { data, error } = await query
-    .order('booking_date', { ascending: false })
+    .order('reservation_date', { ascending: false })
     .order('start_time', { ascending: true });
 
   if (error) throw ApiError.internal();
@@ -632,24 +632,24 @@ export const listBookingGroups = asyncHandler(async (req, res) => {
   const groups = new Map();
 
   for (const row of data ?? []) {
-    const booking = flatten(row);
-    // A booking with no batch is its own group, keyed by its own id.
-    const key = booking.batch_id ?? booking.id;
+    const reservation = flatten(row);
+    // A reservation with no batch is its own group, keyed by its own id.
+    const key = reservation.batch_id ?? reservation.id;
 
     if (!groups.has(key)) {
       groups.set(key, {
         key,
-        batch_id: booking.batch_id,
-        // Kept so single bookings can still be acted on by id.
-        id: booking.id,
-        user: booking.user,
-        booking_date: booking.booking_date,
-        start_time: booking.start_time,
-        end_time: booking.end_time,
-        subject: booking.subject,
-        purpose: booking.purpose,
-        created_at: booking.created_at,
-        decision_note: booking.decision_note,
+        batch_id: reservation.batch_id,
+        // Kept so single reservations can still be acted on by id.
+        id: reservation.id,
+        user: reservation.user,
+        reservation_date: reservation.reservation_date,
+        start_time: reservation.start_time,
+        end_time: reservation.end_time,
+        subject: reservation.subject,
+        purpose: reservation.purpose,
+        created_at: reservation.created_at,
+        decision_note: reservation.decision_note,
         computers: [],
         statuses: {},
       });
@@ -657,13 +657,13 @@ export const listBookingGroups = asyncHandler(async (req, res) => {
 
     const group = groups.get(key);
     group.computers.push({
-      booking_id: booking.id,
-      computer: booking.computer,
-      status: booking.status,
-      checked_in_at: booking.checked_in_at ?? null,
-      receipt_no: booking.receipt_no ?? null,
+      reservation_id: reservation.id,
+      computer: reservation.computer,
+      status: reservation.status,
+      checked_in_at: reservation.checked_in_at ?? null,
+      receipt_no: reservation.receipt_no ?? null,
     });
-    group.statuses[booking.status] = (group.statuses[booking.status] ?? 0) + 1;
+    group.statuses[reservation.status] = (group.statuses[reservation.status] ?? 0) + 1;
   }
 
   const list = [...groups.values()].map((group) => {
@@ -672,7 +672,7 @@ export const listBookingGroups = asyncHandler(async (req, res) => {
       ...group,
       count: group.computers.length,
       // A group is "mixed" when its machines are not all in the same state,
-      // which happens once somebody cancels one seat of a class booking.
+      // which happens once somebody cancels one seat of a class reservation.
       status: states.length === 1 ? states[0] : 'MIXED',
       pending_count: group.statuses.PENDING ?? 0,
       checked_in_count: group.computers.filter((c) => c.checked_in_at).length,
@@ -697,10 +697,10 @@ export const listBookingGroups = asyncHandler(async (req, res) => {
 });
 
 /**
- * PATCH /api/bookings/batch/:batchId/:decision
+ * PATCH /api/reservations/batch/:batchId/:decision
  *
  * Decides a whole class reservation at once. Each machine is still checked
- * individually — another booking may have taken one of them while this sat
+ * individually — another reservation may have taken one of them while this sat
  * in the queue — so the reply says exactly how many went through.
  */
 export const decideBatch = asyncHandler(async (req, res) => {
@@ -712,41 +712,41 @@ export const decideBatch = asyncHandler(async (req, res) => {
   const allowed = decision === 'cancel' ? ACTIVE_STATES : ['PENDING'];
 
   const { data: rows, error } = await supabase
-    .from(TABLES.bookings)
-    .select(BOOKING_SELECT)
+    .from(TABLES.reservations)
+    .select(RESERVATION_SELECT)
     .eq('batch_id', batchId)
     .in('status', allowed);
 
   if (error) throw ApiError.internal();
   if (!rows?.length) {
-    throw ApiError.conflict('There is nothing left to decide in that booking.');
+    throw ApiError.conflict('There is nothing left to decide in that reservation.');
   }
 
-  const bookings = rows.map(flatten);
+  const reservations = rows.map(flatten);
   const now = new Date().toISOString();
   const note = req.body?.note || null;
 
   let done = 0;
   const skipped = [];
 
-  for (const booking of bookings) {
+  for (const reservation of reservations) {
     if (decision === 'approve') {
       // Re-check the slot: a machine may have been taken since the request.
       try {
-        await validateBookingRequest({
-          user: { id: booking.user_id, role: 'admin' },
+        await validateReservationRequest({
+          user: { id: reservation.user_id, role: 'admin' },
           payload: {
-            computer_id: booking.computer_id,
-            booking_date: booking.booking_date,
-            start_time: booking.start_time,
-            end_time: booking.end_time,
+            computer_id: reservation.computer_id,
+            reservation_date: reservation.reservation_date,
+            start_time: reservation.start_time,
+            end_time: reservation.end_time,
           },
-          excludeBookingId: booking.id,
+          excludeReservationId: reservation.id,
           skipUserLimit: true,
           skipSelfOverlap: true,
         });
       } catch (conflict) {
-        skipped.push({ computer: booking.computer?.name, reason: conflict.message });
+        skipped.push({ computer: reservation.computer?.name, reason: conflict.message });
         continue;
       }
     }
@@ -762,9 +762,9 @@ export const decideBatch = asyncHandler(async (req, res) => {
           };
 
     const { data: updated } = await supabase
-      .from(TABLES.bookings)
+      .from(TABLES.reservations)
       .update(patch)
-      .eq('id', booking.id)
+      .eq('id', reservation.id)
       .in('status', allowed)
       .select('id')
       .maybeSingle();
@@ -772,11 +772,11 @@ export const decideBatch = asyncHandler(async (req, res) => {
     if (updated) done += 1;
   }
 
-  const first = bookings[0];
+  const first = reservations[0];
 
   await recordAudit(req, {
-    action: `booking.batch_${decision}`,
-    entity: 'bookings',
+    action: `reservation.batch_${decision}`,
+    entity: 'reservations',
     entityId: batchId,
     details: { count: done, skipped: skipped.length, subject: first.subject },
   });
@@ -785,10 +785,10 @@ export const decideBatch = asyncHandler(async (req, res) => {
     const verb =
       decision === 'approve' ? 'approved' : decision === 'reject' ? 'rejected' : 'cancelled';
     await notify(first.user_id, {
-      title: `Booking ${verb}`,
+      title: `Reservation ${verb}`,
       message:
         `${done} computer${done === 1 ? '' : 's'} ${verb} for ${first.subject} on ` +
-        `${first.booking_date} at ${first.start_time.slice(0, 5)}.` +
+        `${first.reservation_date} at ${first.start_time.slice(0, 5)}.` +
         (note ? ` Note: ${note}` : ''),
       type: decision === 'approve' ? 'success' : 'warning',
     });
@@ -804,7 +804,7 @@ export const decideBatch = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /api/bookings/availability?computer_id=&date= — slots already taken. */
+/** GET /api/reservations/availability?computer_id=&date= — slots already taken. */
 export const getAvailability = asyncHandler(async (req, res) => {
   const { computer_id, date } = req.query;
   if (!computer_id || !date) {
@@ -812,10 +812,10 @@ export const getAvailability = asyncHandler(async (req, res) => {
   }
 
   const { data, error } = await supabase
-    .from(TABLES.bookings)
+    .from(TABLES.reservations)
     .select('id, start_time, end_time, status')
     .eq('computer_id', computer_id)
-    .eq('booking_date', date)
+    .eq('reservation_date', date)
     .in('status', ACTIVE_STATES)
     .order('start_time');
 

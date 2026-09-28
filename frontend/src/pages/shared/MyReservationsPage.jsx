@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import bookingService from '../../services/bookingService.js';
+import reservationService from '../../services/reservationService.js';
 import useFetch from '../../hooks/useFetch.js';
 import useRefreshOnFocus from '../../hooks/useRefreshOnFocus.js';
 import { useToast } from '../../context/ToastContext.jsx';
@@ -8,7 +8,7 @@ import Spinner from '../../components/Spinner.jsx';
 import ErrorState from '../../components/ErrorState.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Pagination from '../../components/Pagination.jsx';
-import BookingFormModal from '../../components/BookingFormModal.jsx';
+import ReservationFormModal from '../../components/ReservationFormModal.jsx';
 import Modal, { ConfirmDialog } from '../../components/Modal.jsx';
 import { formatDate, formatDateTime, formatTimeRange, todayISO } from '../../utils/format.js';
 
@@ -18,8 +18,8 @@ const TABS = [
   { key: '', label: 'All' },
 ];
 
-/** "My bookings" for faculty and student — identical rules for both. */
-export default function MyBookingsPage() {
+/** "My reservations" for faculty and student — identical rules for both. */
+export default function MyReservationsPage() {
   const toast = useToast();
   const [scope, setScope] = useState('upcoming');
   const [status, setStatus] = useState('');
@@ -31,7 +31,7 @@ export default function MyBookingsPage() {
 
   const { data, loading, error, refetch } = useFetch(
     () =>
-      bookingService.mine({
+      reservationService.mine({
         page,
         limit: 15,
         scope: scope || undefined,
@@ -45,24 +45,24 @@ export default function MyBookingsPage() {
   // the change as soon as the user comes back to the tab.
   useRefreshOnFocus(refetch);
 
-  const bookings = data?.data ?? [];
+  const reservations = data?.data ?? [];
 
-  /** Only a future, still-active booking can be cancelled by its owner. */
-  function canCancel(booking) {
-    if (!['PENDING', 'APPROVED'].includes(booking.status)) return false;
+  /** Only a future, still-active reservation can be cancelled by its owner. */
+  function canCancel(reservation) {
+    if (!['PENDING', 'APPROVED'].includes(reservation.status)) return false;
     const today = todayISO();
-    if (booking.booking_date > today) return true;
-    if (booking.booking_date < today) return false;
+    if (reservation.reservation_date > today) return true;
+    if (reservation.reservation_date < today) return false;
     const now = new Date();
     const clock = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
-    return booking.start_time > clock;
+    return reservation.start_time > clock;
   }
 
   async function confirmCancel() {
     setCancelling(true);
     try {
-      await bookingService.cancel(cancelTarget.id);
-      toast.success('Booking cancelled.');
+      await reservationService.cancel(cancelTarget.id);
+      toast.success('Reservation cancelled.');
       setCancelTarget(null);
       refetch();
     } catch (err) {
@@ -76,11 +76,11 @@ export default function MyBookingsPage() {
     <>
       <div className="page-head">
         <div>
-          <h1>My bookings</h1>
+          <h1>My reservations</h1>
           <p className="subtitle">Your reservations and their current status.</p>
         </div>
         <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
-          Book a computer
+          Reserve a computer
         </button>
       </div>
 
@@ -120,23 +120,23 @@ export default function MyBookingsPage() {
           </select>
         </div>
 
-        {loading && bookings.length === 0 ? (
-          <Spinner label="Loading your bookings…" />
+        {loading && reservations.length === 0 ? (
+          <Spinner label="Loading your reservations…" />
         ) : error ? (
           <ErrorState message={error} onRetry={refetch} />
-        ) : bookings.length === 0 ? (
+        ) : reservations.length === 0 ? (
           <EmptyState
             icon="🗓"
-            title="No bookings to show"
+            title="No reservations to show"
             message={
               scope === 'upcoming'
-                ? 'You have no upcoming sessions. Book a computer to get started.'
+                ? 'You have no upcoming sessions. Reserve a computer to get started.'
                 : 'Nothing in this view yet.'
             }
             action={
               scope === 'upcoming' ? (
                 <button type="button" className="btn btn-primary btn-sm" onClick={() => setCreating(true)}>
-                  Book a computer
+                  Reserve a computer
                 </button>
               ) : null
             }
@@ -157,38 +157,38 @@ export default function MyBookingsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {bookings.map((booking) => (
+                  {reservations.map((reservation) => (
                     <tr
-                      key={booking.id}
+                      key={reservation.id}
                       className="is-clickable"
-                      onClick={() => setDetail(booking)}
+                      onClick={() => setDetail(reservation)}
                     >
                       <td data-label="Computer">
-                        <strong>{booking.computer?.name ?? '—'}</strong>
-                        <div className="small muted">{booking.computer?.laboratory?.name ?? ''}</div>
+                        <strong>{reservation.computer?.name ?? '—'}</strong>
+                        <div className="small muted">{reservation.computer?.laboratory?.name ?? ''}</div>
                       </td>
-                      <td className="nowrap" data-label="Date">{formatDate(booking.booking_date)}</td>
-                      <td className="nowrap" data-label="Time">{formatTimeRange(booking.start_time, booking.end_time)}</td>
+                      <td className="nowrap" data-label="Date">{formatDate(reservation.reservation_date)}</td>
+                      <td className="nowrap" data-label="Time">{formatTimeRange(reservation.start_time, reservation.end_time)}</td>
                       <td style={{ maxWidth: 180 }} data-label="Subject">
-                        <div className="truncate" title={booking.subject}>
-                          {booking.subject || '—'}
+                        <div className="truncate" title={reservation.subject}>
+                          {reservation.subject || '—'}
                         </div>
                       </td>
                       <td style={{ maxWidth: 220 }} data-label="Purpose">
-                        <div className="truncate" title={booking.purpose}>
-                          {booking.purpose || '—'}
+                        <div className="truncate" title={reservation.purpose}>
+                          {reservation.purpose || '—'}
                         </div>
-                        {booking.decision_note && (
-                          <div className="small muted truncate" title={booking.decision_note}>
-                            Note: {booking.decision_note}
+                        {reservation.decision_note && (
+                          <div className="small muted truncate" title={reservation.decision_note}>
+                            Note: {reservation.decision_note}
                           </div>
                         )}
                       </td>
                       <td data-label="Status">
-                        <StatusBadge value={booking.status} />
+                        <StatusBadge value={reservation.status} />
                       </td>
                       <td className="right">
-                        {canCancel(booking) && (
+                        {canCancel(reservation) && (
                           <button
                             type="button"
                             className="btn btn-ghost btn-sm"
@@ -196,7 +196,7 @@ export default function MyBookingsPage() {
                               // The row opens the record; this button is a
                               // different decision and must not do both.
                               e.stopPropagation();
-                              setCancelTarget(booking);
+                              setCancelTarget(reservation);
                             }}
                           >
                             Cancel
@@ -209,14 +209,14 @@ export default function MyBookingsPage() {
               </table>
             </div>
 
-            <Pagination pagination={data?.pagination} onPageChange={setPage} label="bookings" />
+            <Pagination pagination={data?.pagination} onPageChange={setPage} label="reservations" />
           </>
         )}
       </div>
 
 
       {/*
-        The whole record of one booking.
+        The whole record of one reservation.
 
         The table shows what fits in a column; this shows the rest — the
         receipt number, when it was checked in and out, and an
@@ -226,7 +226,7 @@ export default function MyBookingsPage() {
       <Modal
         open={Boolean(detail)}
         onClose={() => setDetail(null)}
-        title="Booking details"
+        title="Reservation details"
         size="lg"
         footer={
           <>
@@ -242,7 +242,7 @@ export default function MyBookingsPage() {
                   setDetail(null);
                 }}
               >
-                Cancel booking
+                Cancel reservation
               </button>
             )}
           </>
@@ -266,7 +266,7 @@ export default function MyBookingsPage() {
             </div>
 
             <div className="stack" style={{ gap: '0.7rem' }}>
-              <DetailRow label="Date" value={formatDate(detail.booking_date)} />
+              <DetailRow label="Date" value={formatDate(detail.reservation_date)} />
               <DetailRow
                 label="Time"
                 value={formatTimeRange(detail.start_time, detail.end_time)}
@@ -288,20 +288,20 @@ export default function MyBookingsPage() {
         )}
       </Modal>
 
-      <BookingFormModal open={creating} onClose={() => setCreating(false)} onCreated={refetch} />
+      <ReservationFormModal open={creating} onClose={() => setCreating(false)} onCreated={refetch} />
 
       <ConfirmDialog
         open={Boolean(cancelTarget)}
         onClose={() => setCancelTarget(null)}
         onConfirm={confirmCancel}
         busy={cancelling}
-        title="Cancel this booking?"
-        confirmLabel="Cancel booking"
+        title="Cancel this reservation?"
+        confirmLabel="Cancel reservation"
         message={
           cancelTarget
             ? `${cancelTarget.computer?.name ?? 'This computer'} on ${formatDate(
-                cancelTarget.booking_date
-              )} at ${formatTimeRange(cancelTarget.start_time, cancelTarget.end_time)} will be released for others to book.`
+                cancelTarget.reservation_date
+              )} at ${formatTimeRange(cancelTarget.start_time, cancelTarget.end_time)} will be released for others to reserve.`
             : ''
         }
       />

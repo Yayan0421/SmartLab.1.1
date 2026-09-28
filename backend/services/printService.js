@@ -91,7 +91,7 @@ export function receiptToText(receipt, width = 32) {
   const machines = receipt.computers ?? (receipt.computer ? [receipt.computer] : []);
 
   if (machines.length > 1) {
-    // A class booking: every machine named, wrapped across as many lines
+    // A class reservation: every machine named, wrapped across as many lines
     // as the roll needs. The list is the point of the ticket.
     lines.push(`Computers (${machines.length})`);
     let line = '';

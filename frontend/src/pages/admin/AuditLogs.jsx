@@ -51,11 +51,11 @@ const ACTION_GROUPS = [
   {
     label: 'Laboratory',
     actions: [
-      'booking.create',
-      'booking.create_bulk',
-      'booking.approve',
-      'booking.reject',
-      'booking.cancel',
+      'reservation.create',
+      'reservation.create_bulk',
+      'reservation.approve',
+      'reservation.reject',
+      'reservation.cancel',
       'computer.create',
       'computer.update',
       'computer.delete',

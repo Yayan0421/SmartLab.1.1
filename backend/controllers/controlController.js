@@ -85,7 +85,7 @@ export const sendCommand = asyncHandler(async (req, res) => {
     issuedBy: req.user.id,
   });
 
-  // If somebody is booked on the machine, tell them in the app as well —
+  // If somebody is reserved on the machine, tell them in the app as well —
   // the on-screen message only helps if they are looking at the screen.
   if ((action === 'message' || action === 'lock') && computer.current_user_id) {
     await notify(computer.current_user_id, {

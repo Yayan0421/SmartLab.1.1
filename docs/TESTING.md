@@ -48,7 +48,7 @@ Then:
 
 ```bash
 npm install
-npm run seed     # 1 lab, 30 computers, 43 users, bookings, 24h of energy data
+npm run seed     # 1 lab, 30 computers, 43 users, reservations, 24h of energy data
 npm run dev      # http://localhost:5000
 ```
 
@@ -134,20 +134,20 @@ authentication, and confirmation that errors never leak stack traces.
 ### Computer management (admin)
 - **Admin → Computers**: switch between grid and table views.
 - Add a computer; try a number already used in that lab → conflict message.
-- Set one to `MAINTENANCE`; confirm students can no longer book it.
-- Delete one that has active bookings → refused, with an explanation.
+- Set one to `MAINTENANCE`; confirm students can no longer reserve it.
+- Delete one that has active reservations → refused, with an explanation.
 
-### Booking system
-- As a **student**, book an available computer.
-- Book the *same computer, same slot* again → *"This computer is already booked
+### Reservation system
+- As a **student**, reserve an available computer.
+- Reserve the *same computer, same slot* again → *"This computer is already reserved
   during the selected time."*
 - Try a date in the past → refused.
-- Try booking more than 3 active slots → limit message (configurable in
-  **Admin → Settings → Booking rules**).
-- As **admin**, go to **Bookings**, approve one and reject another with a note.
+- Try reservation more than 3 active slots → limit message (configurable in
+  **Admin → Settings → Reservation rules**).
+- As **admin**, go to **Reservations**, approve one and reject another with a note.
 - Sign back in as the student → notification bell shows the outcome.
 
-By default faculty bookings auto-approve and student bookings need approval.
+By default faculty reservations auto-approve and student reservations need approval.
 Both are switches in **Admin → Settings**.
 
 ### Monitoring
@@ -166,21 +166,21 @@ Both are switches in **Admin → Settings**.
 
 ### Responsiveness
 - Narrow the window below ~900px → the sidebar collapses to a drawer.
-- Check a phone width (~400px) on the student dashboard and booking form.
+- Check a phone width (~400px) on the student dashboard and reservation form.
 
 ---
 
 ## 7. Performance notes
 
-The system is built for 1,000+ users and thousands of bookings:
+The system is built for 1,000+ users and thousands of reservations:
 
 - **Every list endpoint is paginated** and caps `limit` at 100 server-side, so
   no client can request the whole table.
 - **Dashboard counters use `head: true` COUNT queries** — the rows are never
   transferred.
 - **Indexes** cover every filtered column: `users.email`, `users.role`,
-  `bookings.user_id`, `bookings.computer_id`, `bookings.booking_date`,
-  `bookings.status`, a composite `(computer_id, booking_date, status)` for
+  `reservations.user_id`, `reservations.computer_id`, `reservations.reservation_date`,
+  `reservations.status`, a composite `(computer_id, reservation_date, status)` for
   conflict detection, and `(computer_id, recorded_at)` for energy.
 - **Monitoring is push-based.** Agents post heartbeats; the browser reads one
   aggregated snapshot every 15s and **stops entirely when the tab is hidden**.

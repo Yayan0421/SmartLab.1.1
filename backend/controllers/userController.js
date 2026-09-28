@@ -13,7 +13,7 @@ import { isAdminLike, isSuperAdmin, manageableRoles, canManageRole } from '../ut
 // Who may act on whom
 //
 // Administrator accounts belong to the super admin. A plain admin runs the
-// laboratory — computers, bookings, faculty and students — and cannot read,
+// laboratory — computers, reservations, faculty and students — and cannot read,
 // edit or create an account at its own level or above. Every refusal is
 // audited, because an admin reaching for an admin account is worth a record
 // whether or not it succeeded.
@@ -170,19 +170,19 @@ export const getUser = asyncHandler(async (req, res) => {
   // Reading an administrator's record is itself an administrator action.
   if (data.id !== req.user.id) await assertCanActOn(req, data);
 
-  const { count: bookingCount } = await supabase
-    .from(TABLES.bookings)
+  const { count: reservationCount } = await supabase
+    .from(TABLES.reservations)
     .select('id', { count: 'exact', head: true })
     .eq('user_id', data.id);
 
-  res.json({ success: true, data: { ...data, booking_count: bookingCount ?? 0 } });
+  res.json({ success: true, data: { ...data, reservation_count: reservationCount ?? 0 } });
 });
 
 /**
  * GET /api/users/by-qr/:code
  *
  * Resolves a scanned laboratory card to the person holding it, together
- * with whatever they have booked today — what a scanner at the door needs.
+ * with whatever they have reserved today — what a scanner at the door needs.
  * Admin only: a scan identifies a real student, so it is not public.
  */
 export const lookupByQrCode = asyncHandler(async (req, res) => {
@@ -201,11 +201,11 @@ export const lookupByQrCode = asyncHandler(async (req, res) => {
   if (!user) throw ApiError.notFound('No account matches that card.');
 
   const today = labToday();
-  const { data: bookings } = await supabase
-    .from(TABLES.bookings)
-    .select('id, booking_date, start_time, end_time, status, subject, computer:computers ( name )')
+  const { data: reservations } = await supabase
+    .from(TABLES.reservations)
+    .select('id, reservation_date, start_time, end_time, status, subject, computer:computers ( name )')
     .eq('user_id', user.id)
-    .eq('booking_date', today)
+    .eq('reservation_date', today)
     .in('status', ['PENDING', 'APPROVED'])
     .order('start_time');
 
@@ -215,7 +215,7 @@ export const lookupByQrCode = asyncHandler(async (req, res) => {
     success: true,
     data: {
       user,
-      today_bookings: (bookings ?? []).map((b) => ({
+      today_reservations: (reservations ?? []).map((b) => ({
         ...b,
         computer: Array.isArray(b.computer) ? b.computer[0] : b.computer,
       })),
@@ -410,7 +410,7 @@ export const resetPassword = asyncHandler(async (req, res) => {
   });
 });
 
-/** DELETE /api/users/:id — deactivates rather than destroying booking history. */
+/** DELETE /api/users/:id — deactivates rather than destroying reservation history. */
 export const deleteUser = asyncHandler(async (req, res) => {
   const targetId = req.params.id;
 

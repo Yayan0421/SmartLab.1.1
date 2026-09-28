@@ -42,7 +42,7 @@ export const env = {
   // key so a single-device setup works without extra configuration.
   kioskApiKey: process.env.KIOSK_API_KEY || process.env.AGENT_API_KEY || '',
   offlineAfterSeconds: toInt(process.env.OFFLINE_AFTER_SECONDS, 120),
-  // The laboratory's own timezone. Bookings, opening hours and "today" are
+  // The laboratory's own timezone. Reservations, opening hours and "today" are
   // all local facts, so they are computed in this zone rather than UTC.
   labTimezone: process.env.LAB_TIMEZONE || 'Asia/Manila',
   /**

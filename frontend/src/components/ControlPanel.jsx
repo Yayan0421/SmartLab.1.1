@@ -159,7 +159,7 @@ export default function ControlPanel({ computer, onDone }) {
               placeholder="e.g. Gaming is not permitted in the laboratory. Please return to your activity."
             />
             <span className="small muted">
-              This appears as a dialog on the workstation. If someone is booked on it, they also
+              This appears as a dialog on the workstation. If someone is reserved on it, they also
               get a notification in SMARTLAB.
             </span>
           </div>

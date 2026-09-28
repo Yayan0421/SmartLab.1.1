@@ -36,28 +36,28 @@ export default function AdminReports() {
     if (!report) return;
 
     const lines = [
-      ['SMARTLAB booking report'],
+      ['SMARTLAB reservation report'],
       [`Range,${report.range.from} to ${report.range.to}`],
       [],
       ['Summary'],
-      ['Total bookings', report.totals.bookings],
+      ['Total reservations', report.totals.reservations],
       ['Total hours', report.totals.hours],
       ['Completed', report.totals.completed],
       ['Cancelled / rejected / expired', report.totals.cancelled],
       [],
-      ['Bookings by status'],
+      ['Reservations by status'],
       ...Object.entries(report.by_status).map(([status, count]) => [status, count]),
       [],
-      ['Bookings by role'],
+      ['Reservations by role'],
       ...Object.entries(report.by_role).map(([role, count]) => [role, count]),
       [],
       ['Most used computers'],
-      ['Computer', 'Bookings', 'Hours'],
-      ...report.top_computers.map((item) => [item.name, item.bookings, item.hours]),
+      ['Computer', 'Reservations', 'Hours'],
+      ...report.top_computers.map((item) => [item.name, item.reservations, item.hours]),
       [],
       ['Most active users'],
-      ['User', 'Role', 'Bookings', 'Hours'],
-      ...report.top_users.map((item) => [item.name, item.role, item.bookings, item.hours]),
+      ['User', 'Role', 'Reservations', 'Hours'],
+      ...report.top_users.map((item) => [item.name, item.role, item.reservations, item.hours]),
     ];
 
     const csv = lines
@@ -78,13 +78,13 @@ export default function AdminReports() {
       <div className="page-head">
         <div>
           <h1>Reports</h1>
-          <p className="subtitle">Booking activity, utilisation and usage patterns.</p>
+          <p className="subtitle">Reservation activity, utilisation and usage patterns.</p>
         </div>
         <button
           type="button"
           className="btn btn-secondary"
           onClick={exportCsv}
-          disabled={!report || report.totals.bookings === 0}
+          disabled={!report || report.totals.reservations === 0}
         >
           Export CSV
         </button>
@@ -132,18 +132,18 @@ export default function AdminReports() {
         <Spinner label="Building report…" />
       ) : error ? (
         <ErrorState message={error} onRetry={refetch} />
-      ) : !report || report.totals.bookings === 0 ? (
+      ) : !report || report.totals.reservations === 0 ? (
         <div className="card">
           <EmptyState
             icon="📈"
-            title="No bookings in this range"
+            title="No reservations in this range"
             message="Choose a wider date range to see activity."
           />
         </div>
       ) : (
         <>
           <div className="stat-grid" style={{ marginBottom: '1rem' }}>
-            <StatCard label="Total bookings" value={report.totals.bookings} tone="brand" icon="🗓" />
+            <StatCard label="Total reservations" value={report.totals.reservations} tone="brand" icon="🗓" />
             <StatCard
               label="Laboratory hours"
               value={`${formatNumber(report.totals.hours, 1)} h`}
@@ -164,7 +164,7 @@ export default function AdminReports() {
           <div className="chart-grid" style={{ marginBottom: '1rem' }}>
             <section className="card">
               <div className="card-header">
-                <h2>Bookings by status</h2>
+                <h2>Reservations by status</h2>
               </div>
               <div className="card-body">
                 <div className="chart-box">
@@ -180,7 +180,7 @@ export default function AdminReports() {
 
             <section className="card">
               <div className="card-header">
-                <h2>Bookings by role</h2>
+                <h2>Reservations by role</h2>
               </div>
               <div className="card-body">
                 <div className="chart-box">
@@ -204,7 +204,7 @@ export default function AdminReports() {
                   <RankingBarChart
                     data={report.top_computers.map((item) => ({
                       name: item.name,
-                      value: item.bookings,
+                      value: item.reservations,
                     }))}
                   />
                 </div>
@@ -221,7 +221,7 @@ export default function AdminReports() {
                     <tr>
                       <th>User</th>
                       <th>Role</th>
-                      <th className="num">Bookings</th>
+                      <th className="num">Reservations</th>
                       <th className="num">Hours</th>
                     </tr>
                   </thead>
@@ -234,7 +234,7 @@ export default function AdminReports() {
                         <td>
                           <StatusBadge value={item.role} label={ROLE_LABEL[item.role]} />
                         </td>
-                        <td className="num">{item.bookings}</td>
+                        <td className="num">{item.reservations}</td>
                         <td className="num">{formatNumber(item.hours, 1)}</td>
                       </tr>
                     ))}

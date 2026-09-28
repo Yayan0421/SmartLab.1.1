@@ -20,7 +20,7 @@ export async function notify(userId, { title, message = '', type = 'info', link 
   }
 }
 
-/** Fans a notification out to every active admin (e.g. a new booking request). */
+/** Fans a notification out to every active admin (e.g. a new reservation request). */
 export async function notifyAdmins({ title, message = '', type = 'info', link = null }) {
   try {
     const { data, error } = await supabase

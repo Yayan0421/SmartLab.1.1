@@ -104,16 +104,16 @@ export const getComputer = asyncHandler(async (req, res) => {
   if (!data) throw ApiError.notFound('That computer could not be found.');
 
   const today = labToday();
-  const { data: bookings } = await supabase
-    .from(TABLES.bookings)
-    .select('id, booking_date, start_time, end_time, status, purpose, user:users ( id, full_name, role )')
+  const { data: reservations } = await supabase
+    .from(TABLES.reservations)
+    .select('id, reservation_date, start_time, end_time, status, purpose, user:users ( id, full_name, role )')
     .eq('computer_id', data.id)
-    .gte('booking_date', today)
+    .gte('reservation_date', today)
     .in('status', ['PENDING', 'APPROVED'])
-    .order('booking_date', { ascending: true })
+    .order('reservation_date', { ascending: true })
     .limit(10);
 
-  res.json({ success: true, data: { ...decorate(data), upcoming_bookings: bookings ?? [] } });
+  res.json({ success: true, data: { ...decorate(data), upcoming_reservations: reservations ?? [] } });
 });
 
 /** POST /api/computers — admin only. */
@@ -177,19 +177,19 @@ export const updateComputer = asyncHandler(async (req, res) => {
   res.json({ success: true, data: decorate(data) });
 });
 
-/** DELETE /api/computers/:id — blocked while bookings are still active. */
+/** DELETE /api/computers/:id — blocked while reservations are still active. */
 export const deleteComputer = asyncHandler(async (req, res) => {
   const id = req.params.id;
 
   const { count } = await supabase
-    .from(TABLES.bookings)
+    .from(TABLES.reservations)
     .select('id', { count: 'exact', head: true })
     .eq('computer_id', id)
     .in('status', ['PENDING', 'APPROVED']);
 
   if ((count ?? 0) > 0) {
     throw ApiError.conflict(
-      'This computer has active bookings. Cancel them first, or set the computer to maintenance instead.'
+      'This computer has active reservations. Cancel them first, or set the computer to maintenance instead.'
     );
   }
 

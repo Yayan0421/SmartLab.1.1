@@ -28,15 +28,15 @@
 
 .tabbar { display: none; }
 
-/* The booking page's follow-along submit bar, and the space it needs.
+/* The reservation page's follow-along submit bar, and the space it needs.
    Both off on a laptop, where the form and the schedule sit side by side
    and the submit button never leaves the screen. */
-.book-bar,
-.book-bar-spacer { display: none; }
+.reserve-bar,
+.reserve-bar-spacer { display: none; }
 
-/* The phone's own booking panel. Hidden on a laptop, which keeps the
+/* The phone's own reservation panel. Hidden on a laptop, which keeps the
    form-beside-timetable layout that suits the width it has. */
-.book-mobile { display: none; }
+.reserve-mobile { display: none; }
 
 @media (max-width: 900px) {
   .tabbar {
@@ -107,7 +107,7 @@
   }
 
   /* ------------------------------------------------------------------
-     Book a Computer: the submit bar
+     Reserve a Computer: the submit bar
      ------------------------------------------------------------------
      From this width the form, the timetable and the machine list stack
      into one column — the right shape, but it puts the submit button a
@@ -115,9 +115,9 @@
      machines. So the button follows them, carrying the count.
      ------------------------------------------------------------------ */
   /* The submit bar rides above the tab bar, so both stay reachable. */
-  .book-bar-spacer { display: block; }
+  .reserve-bar-spacer { display: block; }
 
-  .book-bar {
+  .reserve-bar {
     position: fixed;
     inset: auto 0 0 0;
     z-index: 55;
@@ -133,31 +133,31 @@
     box-shadow: 0 -4px 14px rgba(43, 31, 28, 0.12);
   }
 
-  .book-bar-count {
+  .reserve-bar-count {
     display: flex;
     align-items: baseline;
     gap: 0.35rem;
     min-width: 0;
   }
 
-  .book-bar-count strong {
+  .reserve-bar-count strong {
     font-size: 1.25rem;
     font-variant-numeric: tabular-nums;
   }
 
-  .book-bar .btn {
+  .reserve-bar .btn {
     flex: 0 0 auto;
     min-height: 44px;
     padding-inline: 1.25rem;
   }
 
-  /* Room for the booking bar above the tab bar the page already allows
+  /* Room for the reservation bar above the tab bar the page already allows
      for, so the last row of the machine list can still be reached. */
-  .book-bar-spacer { height: 72px; }
+  .reserve-bar-spacer { height: 72px; }
 
   /* The in-form button would now be a second way to do the same thing,
      directly above a bar that never leaves. */
-  .book-form .btn-block[type='submit'] { display: none; }
+  .reserve-form .btn-block[type='submit'] { display: none; }
 
   /* ------------------------------------------------------------------
      Topbar
@@ -489,7 +489,7 @@
 }
 
 /* =====================================================================
-   Book a Computer, on a phone
+   Reserve a Computer, on a phone
    =====================================================================
 
    The desktop screen is a form beside a thirty-column timetable. Neither
@@ -504,11 +504,11 @@
    ===================================================================== */
 
 @media (max-width: 900px) {
-  .book-mobile { display: block; }
+  .reserve-mobile { display: block; }
 
   /* The desktop layout steps aside rather than being made to fit. */
-  .book-layout,
-  .book-avail { display: none; }
+  .reserve-layout,
+  .reserve-avail { display: none; }
 
   .bm-step {
     padding: 0.85rem 0.95rem;
@@ -598,7 +598,7 @@
   /* Two to a row, not four.
      
      Four chips left room for a bare number under a start time, and a bare
-     number is ambiguous — it could be a count of bookings, or a machine
+     number is ambiguous — it could be a count of reservations, or a machine
      number. Half the width buys the full time range and the word the
      number needed: "29 computers free". A chip that has to be explained
      by a heading somewhere else is not doing its job. */

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import authRoutes from './authRoutes.js';
 import userRoutes from './userRoutes.js';
 import computerRoutes from './computerRoutes.js';
-import bookingRoutes from './bookingRoutes.js';
+import reservationRoutes from './reservationRoutes.js';
 import monitoringRoutes from './monitoringRoutes.js';
 import energyRoutes from './energyRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
@@ -20,7 +20,7 @@ router.get('/health', (_req, res) => {
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
 router.use('/computers', computerRoutes);
-router.use('/bookings', bookingRoutes);
+router.use('/reservations', reservationRoutes);
 router.use('/monitoring', monitoringRoutes);
 router.use('/energy', energyRoutes);
 router.use('/notifications', notificationRoutes);

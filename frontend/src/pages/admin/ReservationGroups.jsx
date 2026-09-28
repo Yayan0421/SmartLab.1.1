@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import bookingService from '../../services/bookingService.js';
+import reservationService from '../../services/reservationService.js';
 import useFetch from '../../hooks/useFetch.js';
 import useDebounce from '../../hooks/useDebounce.js';
 import useRefreshOnFocus from '../../hooks/useRefreshOnFocus.js';
@@ -15,14 +15,14 @@ import { formatDate, formatTimeRange, ROLE_LABEL, timeAgo } from '../../utils/fo
 const STATUSES = ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED', 'COMPLETED', 'EXPIRED'];
 
 /**
- * Bookings grouped by reservation.
+ * Reservations grouped by reservation.
  *
  * A faculty member reserving a class writes one row per machine, but it is
  * one request by one person: approving it thirty times would be absurd.
  * Each group here is a single reservation, expandable to the machines it
  * covers, and decided in one action.
  */
-export default function BookingGroups() {
+export default function ReservationGroups() {
   const toast = useToast();
 
   const [status, setStatus] = useState('');
@@ -37,7 +37,7 @@ export default function BookingGroups() {
 
   const { data, loading, error, refetch } = useFetch(
     () =>
-      bookingService.groups({
+      reservationService.groups({
         page,
         limit: 20,
         status: status || undefined,
@@ -54,10 +54,10 @@ export default function BookingGroups() {
     const { group, action } = decision;
     setBusy(true);
     try {
-      // A single booking has no batch, so it takes the ordinary route.
+      // A single reservation has no batch, so it takes the ordinary route.
       const res = group.batch_id
-        ? await bookingService.decideBatch(group.batch_id, action, note || undefined)
-        : await bookingService[action](group.id, note || undefined);
+        ? await reservationService.decideBatch(group.batch_id, action, note || undefined)
+        : await reservationService[action](group.id, note || undefined);
 
       toast.success(res.message ?? 'Done.');
       setDecision(null);
@@ -82,7 +82,7 @@ export default function BookingGroups() {
             setSearch(e.target.value);
             setPage(1);
           }}
-          aria-label="Search bookings"
+          aria-label="Search reservations"
         />
         <select
           className="select"
@@ -116,11 +116,11 @@ export default function BookingGroups() {
       </div>
 
       {loading && groups.length === 0 ? (
-        <Spinner label="Loading bookings…" />
+        <Spinner label="Loading reservations…" />
       ) : error ? (
         <ErrorState message={error} onRetry={refetch} />
       ) : groups.length === 0 ? (
-        <EmptyState icon="🗓" title="No bookings match your filters" />
+        <EmptyState icon="🗓" title="No reservations match your filters" />
       ) : (
         <>
           <div className="table-wrap">
@@ -161,7 +161,7 @@ export default function BookingGroups() {
                             type="button"
                             className="group-count"
                             onClick={() => setExpanded(isOpen ? null : group.key)}
-                            title="Show the machines in this booking"
+                            title="Show the machines in this reservation"
                           >
                             <strong>{group.count}</strong>
                             {group.count === 1 ? 'computer' : 'computers'}
@@ -177,7 +177,7 @@ export default function BookingGroups() {
                           )}
                         </td>
 
-                        <td className="nowrap">{formatDate(group.booking_date)}</td>
+                        <td className="nowrap">{formatDate(group.reservation_date)}</td>
                         <td className="nowrap">
                           {formatTimeRange(group.start_time, group.end_time)}
                         </td>
@@ -240,7 +240,7 @@ export default function BookingGroups() {
                           <td colSpan={7}>
                             <div className="group-machines">
                               {group.computers.map((item) => (
-                                <div key={item.booking_id} className="group-machine">
+                                <div key={item.reservation_id} className="group-machine">
                                   <strong>{item.computer?.name}</strong>
                                   <StatusBadge value={item.status} />
                                   {item.checked_in_at && (
@@ -262,7 +262,7 @@ export default function BookingGroups() {
             </table>
           </div>
 
-          <Pagination pagination={data?.pagination} onPageChange={setPage} label="bookings" />
+          <Pagination pagination={data?.pagination} onPageChange={setPage} label="reservations" />
         </>
       )}
 
@@ -271,10 +271,10 @@ export default function BookingGroups() {
         onClose={busy ? () => {} : () => setDecision(null)}
         title={
           decision?.action === 'approve'
-            ? 'Approve this booking?'
+            ? 'Approve this reservation?'
             : decision?.action === 'reject'
-              ? 'Reject this booking?'
-              : 'Cancel this booking?'
+              ? 'Reject this reservation?'
+              : 'Cancel this reservation?'
         }
         footer={
           <>
@@ -292,7 +292,7 @@ export default function BookingGroups() {
               onClick={decide}
               disabled={busy}
             >
-              {busy ? 'Working…' : decision?.action === 'approve' ? 'Approve' : decision?.action === 'reject' ? 'Reject' : 'Cancel booking'}
+              {busy ? 'Working…' : decision?.action === 'approve' ? 'Approve' : decision?.action === 'reject' ? 'Reject' : 'Cancel reservation'}
             </button>
           </>
         }
@@ -306,7 +306,7 @@ export default function BookingGroups() {
                   ? decision.group.computers[0].computer?.name
                   : `${decision.group.count} computers`}
                 <div className="small">
-                  {formatDate(decision.group.booking_date)} ·{' '}
+                  {formatDate(decision.group.reservation_date)} ·{' '}
                   {formatTimeRange(decision.group.start_time, decision.group.end_time)} ·{' '}
                   {decision.group.subject}
                 </div>

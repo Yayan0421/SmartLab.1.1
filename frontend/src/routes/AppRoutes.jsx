@@ -21,7 +21,7 @@ import StudentLayout from '../layouts/StudentLayout.jsx';
 // they load on demand rather than in the bundle every student downloads.
 const AdminDashboard = lazy(() => import('../pages/admin/Dashboard.jsx'));
 const AdminUsers = lazy(() => import('../pages/admin/Users.jsx'));
-const AdminBookings = lazy(() => import('../pages/admin/Bookings.jsx'));
+const AdminReservations = lazy(() => import('../pages/admin/Reservations.jsx'));
 const AdminMonitoring = lazy(() => import('../pages/admin/Monitoring.jsx'));
 const AdminEnergy = lazy(() => import('../pages/admin/Energy.jsx'));
 const AdminReports = lazy(() => import('../pages/admin/Reports.jsx'));
@@ -34,13 +34,13 @@ const AdminAdministrators = lazy(() => import('../pages/admin/Administrators.jsx
 const AdminAuditLogs = lazy(() => import('../pages/admin/AuditLogs.jsx'));
 
 const FacultyDashboard = lazy(() => import('../pages/faculty/Dashboard.jsx'));
-const FacultyBook = lazy(() => import('../pages/faculty/Book.jsx'));
-const FacultyBookings = lazy(() => import('../pages/faculty/Bookings.jsx'));
+const FacultyReserve = lazy(() => import('../pages/faculty/Reserve.jsx'));
+const FacultyReservations = lazy(() => import('../pages/faculty/Reservations.jsx'));
 const FacultyProfile = lazy(() => import('../pages/faculty/Profile.jsx'));
 
 const StudentDashboard = lazy(() => import('../pages/student/Dashboard.jsx'));
-const StudentBook = lazy(() => import('../pages/student/Book.jsx'));
-const StudentBookings = lazy(() => import('../pages/student/Bookings.jsx'));
+const StudentReserve = lazy(() => import('../pages/student/Reserve.jsx'));
+const StudentReservations = lazy(() => import('../pages/student/Reservations.jsx'));
 const StudentProfile = lazy(() => import('../pages/student/Profile.jsx'));
 
 function PageFallback() {
@@ -75,7 +75,7 @@ export default function AppRoutes() {
             <Route index element={<Navigate to="/admin/dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="users" element={<AdminUsers />} />
-            <Route path="bookings" element={<AdminBookings />} />
+            <Route path="reservations" element={<AdminReservations />} />
             <Route path="monitoring" element={<AdminMonitoring />} />
             <Route path="energy" element={<AdminEnergy />} />
             <Route path="reports" element={<AdminReports />} />
@@ -97,8 +97,8 @@ export default function AppRoutes() {
           <Route path="/faculty" element={<FacultyLayout />}>
             <Route index element={<Navigate to="/faculty/dashboard" replace />} />
             <Route path="dashboard" element={<FacultyDashboard />} />
-            <Route path="book" element={<FacultyBook />} />
-            <Route path="bookings" element={<FacultyBookings />} />
+            <Route path="reserve" element={<FacultyReserve />} />
+            <Route path="reservations" element={<FacultyReservations />} />
             <Route path="profile" element={<FacultyProfile />} />
           </Route>
         </Route>
@@ -108,8 +108,8 @@ export default function AppRoutes() {
           <Route path="/student" element={<StudentLayout />}>
             <Route index element={<Navigate to="/student/dashboard" replace />} />
             <Route path="dashboard" element={<StudentDashboard />} />
-            <Route path="book" element={<StudentBook />} />
-            <Route path="bookings" element={<StudentBookings />} />
+            <Route path="reserve" element={<StudentReserve />} />
+            <Route path="reservations" element={<StudentReservations />} />
             <Route path="profile" element={<StudentProfile />} />
           </Route>
         </Route>

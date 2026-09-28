@@ -59,7 +59,7 @@ function claimKeyFromUrl() {
 }
 
 /**
- * Collapses a class booking into one entry.
+ * Collapses a class reservation into one entry.
  *
  * Rows sharing a batch_id were one decision — a member of staff reserving
  * a set of machines for a class — so the kiosk offers them as one thing to
@@ -458,20 +458,20 @@ export default function Kiosk() {
   /**
    * Checks in and prints, with nothing in between.
    *
-   * A booking that spans several machines is checked in as a whole and
+   * A reservation that spans several machines is checked in as a whole and
    * prints one receipt listing them all: a member of staff reserving a
    * class set arrived once, and should not be handed ten slips of paper.
    */
   const confirm = useCallback(
-    async (booking) => {
+    async (reservation) => {
       setBusy(true);
       setMessage(null);
 
       try {
         const res = await kioskService.checkIn(
-          booking.batch_id
-            ? { batch_id: booking.batch_id }
-            : { booking_id: booking.id }
+          reservation.batch_id
+            ? { batch_id: reservation.batch_id }
+            : { reservation_id: reservation.id }
         );
         setSession(res.data);
         setReceipt(res.data.receipt);
@@ -539,7 +539,7 @@ export default function Kiosk() {
         const ready = res.data.sessions.filter((s) => s.can_check_in);
 
         if (ready.length === 0) {
-          const why = res.data.sessions[0]?.reason ?? 'You have no booking for today.';
+          const why = res.data.sessions[0]?.reason ?? 'You have no reservation for today.';
           setMessage({ tone: 'warn', text: why });
           speak(why);
           scheduleReset(12_000);
@@ -548,14 +548,14 @@ export default function Kiosk() {
 
         // One obvious action: do it. Asking somebody to confirm the only
         // thing they could possibly want is a wasted tap at a kiosk with a
-        // queue behind it. A class booking counts as one action however
+        // queue behind it. A class reservation counts as one action however
         // many machines it holds, because it was one decision.
         if (groupSessions(ready).length === 1) {
           await confirm(ready[0]);
           return;
         }
 
-        // Genuinely separate bookings today, so the choice is real.
+        // Genuinely separate reservations today, so the choice is real.
         speak(`Welcome ${res.data.user.full_name.split(' ')[0]}. Choose your session.`);
         scheduleReset(40_000);
       } catch (error) {
@@ -691,7 +691,7 @@ export default function Kiosk() {
   /* screens                                                           */
   /* ---------------------------------------------------------------- */
   // Laboratory time, not the terminal's — the clock on screen has to agree
-  // with the booking times beside it.
+  // with the reservation times beside it.
   const time = labFormat(clock, { hour: '2-digit', minute: '2-digit', hour12: false });
   const date = labFormat(clock, {
     weekday: 'long',
@@ -796,29 +796,29 @@ export default function Kiosk() {
               <div className="kiosk-sessions">
                 {scanned.sessions.length === 0 && (
                   <div className="kiosk-note is-warn">
-                    You have no booking for today. Book a computer in SMARTLAB first.
+                    You have no reservation for today. Reserve a computer in SMARTLAB first.
                   </div>
                 )}
 
-                {groupSessions(scanned.sessions).map((booking) => (
+                {groupSessions(scanned.sessions).map((reservation) => (
                   <button
-                    key={booking.batch_id ?? booking.id}
+                    key={reservation.batch_id ?? reservation.id}
                     type="button"
-                    className={`kiosk-session ${booking.can_check_in ? '' : 'is-blocked'}`}
-                    onClick={() => booking.can_check_in && confirm(booking)}
-                    disabled={!booking.can_check_in || busy}
+                    className={`kiosk-session ${reservation.can_check_in ? '' : 'is-blocked'}`}
+                    onClick={() => reservation.can_check_in && confirm(reservation)}
+                    disabled={!reservation.can_check_in || busy}
                   >
                     <span className="kiosk-session-pc">
-                      {booking.machines.length > 1
-                        ? `${booking.machines.length} workstations`
-                        : booking.computer?.name}
+                      {reservation.machines.length > 1
+                        ? `${reservation.machines.length} workstations`
+                        : reservation.computer?.name}
                     </span>
                     <span className="kiosk-session-meta">
-                      {formatTimeRange(booking.start_time, booking.end_time)} · {booking.subject}
-                      {booking.machines.length > 1 ? ` · ${booking.machines.join(', ')}` : ''}
+                      {formatTimeRange(reservation.start_time, reservation.end_time)} · {reservation.subject}
+                      {reservation.machines.length > 1 ? ` · ${reservation.machines.join(', ')}` : ''}
                     </span>
                     <span className="kiosk-session-action">
-                      {booking.can_check_in ? 'Tap to start →' : booking.reason}
+                      {reservation.can_check_in ? 'Tap to start →' : reservation.reason}
                     </span>
                   </button>
                 ))}
@@ -873,7 +873,7 @@ export default function Kiosk() {
 
         <footer className="kiosk-foot">
           Check in within {scanned?.grace_minutes ?? 30} minutes of your start time, or the
-          booking is released.
+          reservation is released.
         </footer>
       </div>
 

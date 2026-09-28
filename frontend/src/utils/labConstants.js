@@ -1,6 +1,6 @@
 /**
- * Laboratory-specific option lists shared by the booking screens.
- * Kept in one place so the booking form, the schedule and the admin
+ * Laboratory-specific option lists shared by the reservation screens.
+ * Kept in one place so the reservation form, the schedule and the admin
  * filters always offer exactly the same values.
  */
 
@@ -23,7 +23,7 @@ export const LAB_SUBJECTS = [
 ];
 
 /** Why the workstation is needed — the reference's "Purpose" dropdown. */
-export const BOOKING_PURPOSES = [
+export const RESERVATION_PURPOSES = [
   'Laboratory exercise',
   'Hands-on activity',
   'Machine problem',

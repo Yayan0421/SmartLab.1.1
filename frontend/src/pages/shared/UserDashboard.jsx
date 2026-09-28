@@ -9,7 +9,7 @@ import StatusBadge from '../../components/StatusBadge.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import ErrorState from '../../components/ErrorState.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
-import BookingFormModal from '../../components/BookingFormModal.jsx';
+import ReservationFormModal from '../../components/ReservationFormModal.jsx';
 import { formatDate, formatTimeRange, timeAgo } from '../../utils/format.js';
 
 /**
@@ -20,11 +20,11 @@ import { formatDate, formatTimeRange, timeAgo } from '../../utils/format.js';
  */
 export default function UserDashboard() {
   const { user } = useAuth();
-  const [booking, setBooking] = useState(false);
+  const [reservation, setReservation] = useState(false);
 
   const { data, loading, error, refetch } = useFetch(() => adminService.myDashboard(), []);
 
-  // Booking decisions land while the dashboard is open; refresh on return.
+  // Reservation decisions land while the dashboard is open; refresh on return.
   useRefreshOnFocus(refetch);
 
   const stats = data?.data;
@@ -44,8 +44,8 @@ export default function UserDashboard() {
             {stats.available_computers} of {stats.total_computers} computers are free right now.
           </p>
         </div>
-        <button type="button" className="btn btn-primary btn-lg" onClick={() => setBooking(true)}>
-          Book a computer
+        <button type="button" className="btn btn-primary btn-lg" onClick={() => setReservation(true)}>
+          Reserve a computer
         </button>
       </div>
 
@@ -58,22 +58,22 @@ export default function UserDashboard() {
           icon="🖥"
         />
         <StatCard
-          label="Active bookings"
-          value={stats.active_bookings}
+          label="Active reservations"
+          value={stats.active_reservations}
           hint="Approved or awaiting approval"
           tone="brand"
           icon="🗓"
         />
         <StatCard
           label="Upcoming"
-          value={stats.upcoming_bookings}
+          value={stats.upcoming_reservations}
           hint="Confirmed for a future date"
           tone="info"
           icon="⏭"
         />
         <StatCard
           label="Completed"
-          value={stats.completed_bookings}
+          value={stats.completed_reservations}
           hint="Sessions finished"
           tone="neutral"
           icon="✓"
@@ -84,19 +84,19 @@ export default function UserDashboard() {
         <section className="card">
           <div className="card-header">
             <h2>Your next sessions</h2>
-            <Link to={`${base}/bookings`} className="small">
+            <Link to={`${base}/reservations`} className="small">
               View all
             </Link>
           </div>
 
-          {stats.next_bookings.length === 0 ? (
+          {stats.next_reservations.length === 0 ? (
             <EmptyState
               icon="🗓"
-              title="No upcoming bookings"
+              title="No upcoming reservations"
               message="Reserve a workstation and it will show up here."
               action={
-                <button type="button" className="btn btn-primary btn-sm" onClick={() => setBooking(true)}>
-                  Book a computer
+                <button type="button" className="btn btn-primary btn-sm" onClick={() => setReservation(true)}>
+                  Reserve a computer
                 </button>
               }
             />
@@ -112,13 +112,13 @@ export default function UserDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {stats.next_bookings.map((item) => (
+                  {stats.next_reservations.map((item) => (
                     <tr key={item.id}>
                       <td data-label="Computer">
                         <strong>{item.computer?.name ?? '—'}</strong>
                         <div className="small muted">{item.computer?.laboratory?.name ?? ''}</div>
                       </td>
-                      <td className="nowrap" data-label="Date">{formatDate(item.booking_date)}</td>
+                      <td className="nowrap" data-label="Date">{formatDate(item.reservation_date)}</td>
                       <td className="nowrap" data-label="Time">{formatTimeRange(item.start_time, item.end_time)}</td>
                       <td data-label="Status">
                         <StatusBadge value={item.status} />
@@ -140,7 +140,7 @@ export default function UserDashboard() {
           </div>
 
           {stats.recent_notifications.length === 0 ? (
-            <EmptyState icon="🔕" title="Nothing new" message="Updates about your bookings appear here." />
+            <EmptyState icon="🔕" title="Nothing new" message="Updates about your reservations appear here." />
           ) : (
             <div>
               {stats.recent_notifications.map((item) => (
@@ -159,9 +159,9 @@ export default function UserDashboard() {
         </section>
       </div>
 
-      <BookingFormModal
-        open={booking}
-        onClose={() => setBooking(false)}
+      <ReservationFormModal
+        open={reservation}
+        onClose={() => setReservation(false)}
         onCreated={refetch}
       />
     </>

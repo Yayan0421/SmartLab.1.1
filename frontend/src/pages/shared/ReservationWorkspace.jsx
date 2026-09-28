@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import bookingService from '../../services/bookingService.js';
+import reservationService from '../../services/reservationService.js';
 import { useToast } from '../../context/ToastContext.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import Spinner from '../../components/Spinner.jsx';
@@ -8,7 +8,7 @@ import Modal from '../../components/Modal.jsx';
 import usePolling from '../../hooks/usePolling.js';
 import {
   LAB_SUBJECTS,
-  BOOKING_PURPOSES,
+  RESERVATION_PURPOSES,
   DEFAULT_POLICY,
   buildTimeSlots,
   describeDays,
@@ -17,17 +17,17 @@ import {
 import { formatTimeRange, todayISO, addDaysISO } from '../../utils/format.js';
 
 /**
- * The booking workspace used by both students and faculty.
+ * The reservation workspace used by both students and faculty.
  *
- * Three panels: the booking form, the week's laboratory schedule as a
+ * Three panels: the reservation form, the week's laboratory schedule as a
  * time × workstation grid, and the list of machines free for the chosen
  * slot. Selecting cells in the grid and cards in the list are two routes to
  * the same selection, so people can work whichever way they think.
  *
- * Everything shown here is a convenience. The server re-runs every booking
+ * Everything shown here is a convenience. The server re-runs every reservation
  * rule when the reservation is submitted.
  */
-export default function BookingWorkspace() {
+export default function ReservationWorkspace() {
   const toast = useToast();
   const { user } = useAuth();
 
@@ -35,7 +35,7 @@ export default function BookingWorkspace() {
   const [date, setDate] = useState('');
   const [slotIndex, setSlotIndex] = useState(0);
   const [subject, setSubject] = useState(LAB_SUBJECTS[0]);
-  const [purpose, setPurpose] = useState(BOOKING_PURPOSES[0]);
+  const [purpose, setPurpose] = useState(RESERVATION_PURPOSES[0]);
   const [selected, setSelected] = useState([]);
 
   const [schedule, setSchedule] = useState(null);
@@ -76,7 +76,7 @@ export default function BookingWorkspace() {
   // Load the rules once, then settle on the first open day.
   useEffect(() => {
     let cancelled = false;
-    bookingService
+    reservationService
       .policy()
       .then((res) => {
         if (!cancelled) setPolicy({ ...DEFAULT_POLICY, ...res.data });
@@ -96,7 +96,7 @@ export default function BookingWorkspace() {
   const load = useCallback(async () => {
     if (!date) return;
     try {
-      const res = await bookingService.schedule(date);
+      const res = await reservationService.schedule(date);
       setSchedule(res.data);
       setError(null);
     } catch (err) {
@@ -112,24 +112,24 @@ export default function BookingWorkspace() {
     load();
   }, [load]);
 
-  // Someone else may book a machine while this page is open.
+  // Someone else may reserve a machine while this page is open.
   usePolling(load, 30_000);
 
   const computers = schedule?.computers ?? [];
-  const bookings = schedule?.bookings ?? [];
+  const reservations = schedule?.reservations ?? [];
 
   const isStudent = user?.role === 'student';
 
-  /** Is this machine taken during the given slot? Returns the booking. */
-  const bookingFor = useCallback(
+  /** Is this machine taken during the given slot? Returns the reservation. */
+  const reservationFor = useCallback(
     (computerId, theSlot) => {
       const start = toDbTime(theSlot.start);
       const end = toDbTime(theSlot.end);
-      return bookings.find(
+      return reservations.find(
         (b) => b.computer_id === computerId && start < b.end_time && end > b.start_time
       );
     },
-    [bookings]
+    [reservations]
   );
 
   /**
@@ -142,11 +142,11 @@ export default function BookingWorkspace() {
     (theSlot) => {
       const start = toDbTime(theSlot.start);
       const end = toDbTime(theSlot.end);
-      return bookings.find(
+      return reservations.find(
         (b) => b.by_faculty && start < b.end_time && end > b.start_time
       );
     },
-    [bookings]
+    [reservations]
   );
 
   const slotClosedForMe = useCallback(
@@ -155,7 +155,7 @@ export default function BookingWorkspace() {
   );
 
   /** Hours this student has already committed on the chosen day. */
-  const hoursUsed = bookings
+  const hoursUsed = reservations
     .filter((b) => b.mine)
     .reduce((total, b) => {
       const toMin = (t) => {
@@ -169,8 +169,8 @@ export default function BookingWorkspace() {
   const maxPick = isStudent ? policy.student_max_computers ?? 1 : 30;
 
   /**
-   * Mirrors the server rule exactly (see backend validateBookingRequest):
-   * only a machine withdrawn from booking or under maintenance is blocked.
+   * Mirrors the server rule exactly (see backend validateReservationRequest):
+   * only a machine withdrawn from reservation or under maintenance is blocked.
    *
    * OFFLINE is deliberately *not* blocking — it only means the monitoring
    * agent is not reporting at this moment, which says nothing about whether
@@ -180,9 +180,9 @@ export default function BookingWorkspace() {
     (computer, theSlot) =>
       computer.is_bookable &&
       computer.status !== 'MAINTENANCE' &&
-      !bookingFor(computer.id, theSlot) &&
+      !reservationFor(computer.id, theSlot) &&
       !slotClosedForMe(theSlot),
-    [bookingFor, slotClosedForMe]
+    [reservationFor, slotClosedForMe]
   );
 
   const slotIsPast = useCallback(
@@ -200,7 +200,7 @@ export default function BookingWorkspace() {
   /**
    * Reserves the first N free machines for the chosen slot.
    *
-   * Faculty booking a class think in numbers ("I need 25 seats"), not in
+   * Faculty reservation a class think in numbers ("I need 25 seats"), not in
    * individual machines, so the count drives the selection. Clicking cells
    * still works and simply adjusts the same list.
    */
@@ -230,7 +230,7 @@ export default function BookingWorkspace() {
   /**
    * The button asks; the dialog commits.
    *
-   * A booking takes a machine out of circulation for an hour, and for a
+   * A reservation takes a machine out of circulation for an hour, and for a
    * class it takes twenty. Checking the four choices are what somebody
    * meant, once, before it happens, costs a tap and saves an
    * administrator a cancellation.
@@ -252,7 +252,7 @@ export default function BookingWorkspace() {
     setSubmitting(true);
     try {
       const payload = {
-        booking_date: date,
+        reservation_date: date,
         start_time: toDbTime(slot.start),
         end_time: toDbTime(slot.end),
         purpose,
@@ -261,8 +261,8 @@ export default function BookingWorkspace() {
 
       const res =
         selected.length === 1
-          ? await bookingService.create({ ...payload, computer_id: selected[0] })
-          : await bookingService.createBulk({ ...payload, computer_ids: selected });
+          ? await reservationService.create({ ...payload, computer_id: selected[0] })
+          : await reservationService.createBulk({ ...payload, computer_ids: selected });
 
       const created = Array.isArray(res.data) ? res.data : [res.data];
       const approved = created[0]?.status === 'APPROVED';
@@ -292,14 +292,14 @@ export default function BookingWorkspace() {
         <div>
           <h1>Welcome, {user?.full_name?.split(' ')[0]}!</h1>
           <p className="subtitle">
-            Book a computer for your laboratory subject, class activity or research.
+            Reserve a computer for your laboratory subject, class activity or research.
           </p>
           <p className="small muted" style={{ marginTop: '0.2rem' }}>
             Laboratory hours: {describeDays(policy.open_days)}, {policy.open_time} to{' '}
             {policy.close_time}.
             {isStudent && (
               <>
-                {' '}Students may book {policy.student_max_hours_per_day} hours a day on{' '}
+                {' '}Students may reserve {policy.student_max_hours_per_day} hours a day on{' '}
                 {policy.student_max_computers === 1
                   ? 'one computer'
                   : `${policy.student_max_computers} computers`}.
@@ -310,7 +310,7 @@ export default function BookingWorkspace() {
       </div>
 
       {/*
-        The phone's booking panel.
+        The phone's reservation panel.
 
         The desktop layout is a form beside a thirty-column timetable. That
         grid cannot survive a 390px screen — `width: 100%` makes it squeeze
@@ -322,7 +322,7 @@ export default function BookingWorkspace() {
         desktop markup below is hidden at this width, and this panel is
         hidden above it, so neither has to compromise for the other.
       */}
-      <div className="book-mobile">
+      <div className="reserve-mobile">
         <section className="bm-step">
           <h2 className="bm-label">Day</h2>
           <div className="bm-chips bm-scroll">
@@ -370,7 +370,7 @@ export default function BookingWorkspace() {
                       : held
                         ? 'Class reserved'
                         : free === 0
-                          ? 'Fully booked'
+                          ? 'Fully reserved'
                           : `${free} computer${free === 1 ? '' : 's'} free`}
                   </span>
 
@@ -434,7 +434,7 @@ export default function BookingWorkspace() {
             {computers.map((computer) => {
               const free = isFree(computer, slot) && !slotIsPast(slot);
               const on = selected.includes(computer.id);
-              const taken = bookingFor(computer.id, slot);
+              const taken = reservationFor(computer.id, slot);
 
               return (
                 <button
@@ -491,7 +491,7 @@ export default function BookingWorkspace() {
               onChange={(e) => setPurpose(e.target.value)}
               disabled={submitting}
             >
-              {BOOKING_PURPOSES.map((s) => (
+              {RESERVATION_PURPOSES.map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
@@ -499,22 +499,22 @@ export default function BookingWorkspace() {
 
           <p className="bm-note">
             {isStudent
-              ? 'Student bookings are sent to an administrator for approval.'
-              : 'Faculty bookings are confirmed immediately.'}
+              ? 'Student reservations are sent to an administrator for approval.'
+              : 'Faculty reservations are confirmed immediately.'}
           </p>
         </section>
       </div>
 
-      <div className="book-layout">
-        {/* ---------------- booking form ---------------- */}
-        <section className="card book-form">
+      <div className="reserve-layout">
+        {/* ---------------- reservation form ---------------- */}
+        <section className="card reserve-form">
           <div className="card-header">
             <h2>
-              <span className="book-ico" aria-hidden="true">🖥</span> Book a Computer
+              <span className="reserve-ico" aria-hidden="true">🖥</span> Reserve a Computer
             </h2>
           </div>
 
-          <form id="booking-form" className="card-body stack" onSubmit={review}>
+          <form id="reservation-form" className="card-body stack" onSubmit={review}>
             <div className="field field-date">
               <label htmlFor="bk-date">Date</label>
               <select
@@ -580,7 +580,7 @@ export default function BookingWorkspace() {
                 onChange={(e) => setPurpose(e.target.value)}
                 disabled={submitting}
               >
-                {BOOKING_PURPOSES.map((p) => (
+                {RESERVATION_PURPOSES.map((p) => (
                   <option key={p} value={p}>
                     {p}
                   </option>
@@ -682,7 +682,7 @@ export default function BookingWorkspace() {
 
             <div className="field">
               <label>{isStudent ? 'Selected computer' : 'Selected computers'}</label>
-              <div className="book-count">
+              <div className="reserve-count">
                 <strong>{selected.length}</strong>
                 <span className="muted small">
                   {selected.length === 0
@@ -699,23 +699,23 @@ export default function BookingWorkspace() {
               {submitting
                 ? 'Submitting…'
                 : selected.length > 1
-                  ? `Book ${selected.length} computers`
-                  : 'Book computer'}
+                  ? `Reserve ${selected.length} computers`
+                  : 'Reserve computer'}
             </button>
 
             <p className="small muted" style={{ marginBottom: 0 }}>
               {user?.role === 'faculty'
-                ? 'Faculty bookings are confirmed immediately.'
-                : 'Student bookings are sent to an administrator for approval.'}
+                ? 'Faculty reservations are confirmed immediately.'
+                : 'Student reservations are sent to an administrator for approval.'}
             </p>
           </form>
         </section>
 
         {/* ---------------- schedule grid ---------------- */}
-        <section className="card book-schedule">
+        <section className="card reserve-schedule">
           <div className="card-header">
             <h2>
-              <span className="book-ico" aria-hidden="true">🗓</span> Computer Lab Schedule
+              <span className="reserve-ico" aria-hidden="true">🗓</span> Computer Lab Schedule
             </h2>
             <span className="small muted">
               Open {describeDays(policy.open_days)} · {policy.open_time}–{policy.close_time}
@@ -763,7 +763,7 @@ export default function BookingWorkspace() {
                       </th>
 
                       {computers.map((computer) => {
-                        const booked = bookingFor(computer.id, s);
+                        const reserved = reservationFor(computer.id, s);
                         const free = isFree(computer, s) && !past;
                         const isSelected = i === slotIndex && selected.includes(computer.id);
 
@@ -776,17 +776,17 @@ export default function BookingWorkspace() {
                         if (past) {
                           cls = 'past';
                           title = 'This slot has passed';
-                        } else if (closed && !booked) {
+                        } else if (closed && !reserved) {
                           cls = 'class';
                           title = `Reserved for a class${classHold?.subject ? ` — ${classHold.subject}` : ''}`;
-                        } else if (booked) {
-                          cls = booked.mine ? 'mine' : 'taken';
-                          title = booked.mine
-                            ? `Your booking — ${booked.subject ?? booked.purpose ?? ''}`
-                            : 'Already booked';
+                        } else if (reserved) {
+                          cls = reserved.mine ? 'mine' : 'taken';
+                          title = reserved.mine
+                            ? `Your reservation — ${reserved.subject ?? reserved.purpose ?? ''}`
+                            : 'Already reserved';
                         } else if (!computer.is_bookable || computer.status === 'MAINTENANCE') {
                           cls = 'blocked';
-                          title = 'Under maintenance — cannot be booked';
+                          title = 'Under maintenance — cannot be reserved';
                         } else if (computer.status === 'OFFLINE') {
                           // Bookable, but worth flagging that nothing is reporting.
                           cls = 'free idle';
@@ -819,7 +819,7 @@ export default function BookingWorkspace() {
 
           <div className="legend">
             <span className="legend-item"><i className="dot free" /> Available</span>
-            <span className="legend-item"><i className="dot taken" /> Booked</span>
+            <span className="legend-item"><i className="dot taken" /> Reserved</span>
             <span className="legend-item"><i className="dot mine" /> Yours</span>
             <span className="legend-item"><i className="dot blocked" /> Unavailable</span>
             {isStudent && policy.faculty_priority && (
@@ -831,10 +831,10 @@ export default function BookingWorkspace() {
       </div>
 
       {/* ---------------- available computers ---------------- */}
-      <section className="card book-avail" style={{ marginTop: '1rem' }}>
+      <section className="card reserve-avail" style={{ marginTop: '1rem' }}>
         <div className="card-header">
           <h2>
-            <span className="book-ico" aria-hidden="true">🖥</span> Available Computers
+            <span className="reserve-ico" aria-hidden="true">🖥</span> Available Computers
           </h2>
           <span className="small muted">
             {formatTimeRange(toDbTime(slot.start), toDbTime(slot.end))} ·{' '}
@@ -850,12 +850,12 @@ export default function BookingWorkspace() {
           ) : (
             <div className="avail-grid">
               {computers.map((computer) => {
-                const booked = bookingFor(computer.id, slot);
+                const reserved = reservationFor(computer.id, slot);
                 const free = isFree(computer, slot);
                 const isSelected = selected.includes(computer.id);
 
-                const state = booked
-                  ? booked.mine
+                const state = reserved
+                  ? reserved.mine
                     ? 'Yours'
                     : 'Occupied'
                   : computer.status === 'MAINTENANCE' || !computer.is_bookable
@@ -886,7 +886,7 @@ export default function BookingWorkspace() {
       </section>
 
       {/*
-        The booking bar, shown only on a phone.
+        The reservation bar, shown only on a phone.
 
         On a laptop the form and the schedule sit side by side, so the
         submit button is always in view. On a phone they stack, and by the
@@ -894,8 +894,8 @@ export default function BookingWorkspace() {
         screen and a half above them — so it follows, carrying the count
         with it. `form=` lets it submit the form it is no longer inside.
       */}
-      <div className="book-bar">
-        <span className="book-bar-count">
+      <div className="reserve-bar">
+        <span className="reserve-bar-count">
           <strong>{selected.length}</strong>
           <span className="small muted">
             {selected.length === 1 ? 'computer' : 'computers'} selected
@@ -904,21 +904,21 @@ export default function BookingWorkspace() {
 
         <button
           type="submit"
-          form="booking-form"
+          form="reservation-form"
           className="btn btn-primary"
           disabled={submitting || selected.length === 0}
         >
           {submitting
             ? 'Submitting…'
             : selected.length > 1
-              ? `Book ${selected.length}`
-              : 'Book'}
+              ? `Reserve ${selected.length}`
+              : 'Reserve'}
         </button>
       </div>
 
 
       {/*
-        Booking confirmation.
+        Reservation confirmation.
 
         Everything that is about to be reserved, in one place: what, when,
         for how long, and what happens next. The last line is the part
@@ -929,7 +929,7 @@ export default function BookingWorkspace() {
       <Modal
         open={confirming}
         onClose={() => !submitting && setConfirming(false)}
-        title="Confirm your booking"
+        title="Confirm your reservation"
         footer={
           <>
             <button
@@ -995,14 +995,14 @@ export default function BookingWorkspace() {
         <p className={`confirm-note ${isStudent ? '' : 'is-immediate'}`}>
           {isStudent
             ? 'This request goes to an administrator for approval. You will be notified once it is decided.'
-            : 'Faculty bookings are confirmed immediately, and close the slot to students.'}
+            : 'Faculty reservations are confirmed immediately, and close the slot to students.'}
         </p>
       </Modal>
 
       {/* Keeps the last of the machine list clear of the fixed bars. A
           spacer rather than padding on an ancestor, so it does not depend
           on :has() being available on whatever phone this runs on. */}
-      <div className="book-bar-spacer" aria-hidden="true" />
+      <div className="reserve-bar-spacer" aria-hidden="true" />
     </>
   );
 }

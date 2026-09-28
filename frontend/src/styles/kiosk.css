@@ -412,7 +412,7 @@
   .receipt-row > span:last-child { text-align: right; word-break: break-word; }
   .receipt-strong { font-weight: 700; }
 
-  /* The machines in a class booking, wrapped across as many lines as the
+  /* The machines in a class reservation, wrapped across as many lines as the
      roll needs rather than truncated — the list is the point of the ticket. */
   .receipt-machines {
     font-weight: 700;

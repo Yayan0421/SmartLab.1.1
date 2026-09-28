@@ -13,7 +13,7 @@ const todayISO = labToday;
  *
  * One request behind the whole admin landing page. Every figure is a
  * head:true COUNT — the rows themselves are never shipped to the browser,
- * which is what keeps this fast at 1,000+ users and thousands of bookings.
+ * which is what keeps this fast at 1,000+ users and thousands of reservations.
  */
 export const adminDashboard = asyncHandler(async (_req, res) => {
   const today = todayISO();
@@ -30,8 +30,8 @@ export const adminDashboard = asyncHandler(async (_req, res) => {
     maintenanceComputers,
     reservedComputers,
     onlineStatus,
-    pendingBookings,
-    todayBookings,
+    pendingReservations,
+    todayReservations,
     totalUsers,
     activeUsers,
     students,
@@ -44,8 +44,8 @@ export const adminDashboard = asyncHandler(async (_req, res) => {
     count(TABLES.computers).eq('status', 'MAINTENANCE'),
     count(TABLES.computers).eq('status', 'RESERVED'),
     count(TABLES.computerStatus).eq('is_online', true).gte('heartbeat_at', offlineCutoff),
-    count(TABLES.bookings).eq('status', 'PENDING'),
-    count(TABLES.bookings).eq('booking_date', today),
+    count(TABLES.reservations).eq('status', 'PENDING'),
+    count(TABLES.reservations).eq('reservation_date', today),
     count(TABLES.users),
     count(TABLES.users).eq('status', 'active'),
     count(TABLES.users).eq('role', 'student'),
@@ -66,19 +66,19 @@ export const adminDashboard = asyncHandler(async (_req, res) => {
   const energyToday = (todayEnergy ?? []).reduce((sum, r) => sum + (Number(r.energy_kwh) || 0), 0);
   const { rate_per_kwh, currency } = await getSetting('energy');
 
-  // Seven-day booking activity.
+  // Seven-day reservation activity.
   const weekAgo = labToday(new Date(Date.now() - 6 * 86_400_000));
-  const { data: weekBookings } = await supabase
-    .from(TABLES.bookings)
-    .select('booking_date, status')
-    .gte('booking_date', weekAgo)
-    .lte('booking_date', today);
+  const { data: weekReservations } = await supabase
+    .from(TABLES.reservations)
+    .select('reservation_date, status')
+    .gte('reservation_date', weekAgo)
+    .lte('reservation_date', today);
 
-  const bookingSeries = [];
+  const reservationSeries = [];
   for (let i = 6; i >= 0; i -= 1) {
     const day = labToday(new Date(Date.now() - i * 86_400_000));
-    const rows = (weekBookings ?? []).filter((r) => r.booking_date === day);
-    bookingSeries.push({
+    const rows = (weekReservations ?? []).filter((r) => r.reservation_date === day);
+    reservationSeries.push({
       date: day,
       total: rows.length,
       approved: rows.filter((r) => ['APPROVED', 'COMPLETED'].includes(r.status)).length,
@@ -100,11 +100,11 @@ export const adminDashboard = asyncHandler(async (_req, res) => {
   for (const bucket of hourly) bucket.energy_kwh = Number(bucket.energy_kwh.toFixed(4));
 
   // Latest activity for the dashboard feed.
-  const { data: recentBookings } = await supabase
-    .from(TABLES.bookings)
+  const { data: recentReservations } = await supabase
+    .from(TABLES.reservations)
     .select(`
-      id, booking_date, start_time, end_time, status, purpose, created_at,
-      user:users!bookings_user_id_fkey ( id, full_name, role ),
+      id, reservation_date, start_time, end_time, status, purpose, created_at,
+      user:users!reservations_user_id_fkey ( id, full_name, role ),
       computer:computers ( id, name )
     `)
     .order('created_at', { ascending: false })
@@ -123,10 +123,10 @@ export const adminDashboard = asyncHandler(async (_req, res) => {
         reserved: reservedComputers.count ?? 0,
         utilization: total ? Number((((inUseComputers.count ?? 0) / total) * 100).toFixed(1)) : 0,
       },
-      bookings: {
-        pending: pendingBookings.count ?? 0,
-        today: todayBookings.count ?? 0,
-        weekly: bookingSeries,
+      reservations: {
+        pending: pendingReservations.count ?? 0,
+        today: todayReservations.count ?? 0,
+        weekly: reservationSeries,
       },
       users: {
         total: totalUsers.count ?? 0,
@@ -141,7 +141,7 @@ export const adminDashboard = asyncHandler(async (_req, res) => {
         currency,
         hourly,
       },
-      recent_bookings: (recentBookings ?? []).map((row) => ({
+      recent_reservations: (recentReservations ?? []).map((row) => ({
         ...row,
         user: Array.isArray(row.user) ? row.user[0] : row.user,
         computer: Array.isArray(row.computer) ? row.computer[0] : row.computer,
@@ -164,23 +164,23 @@ export const userDashboard = asyncHandler(async (req, res) => {
     await Promise.all([
       count(TABLES.computers).eq('status', 'AVAILABLE').eq('is_bookable', true),
       count(TABLES.computers),
-      count(TABLES.bookings).eq('user_id', userId).in('status', ['PENDING', 'APPROVED']).gte('booking_date', today),
-      count(TABLES.bookings).eq('user_id', userId).eq('status', 'APPROVED').gt('booking_date', today),
-      count(TABLES.bookings).eq('user_id', userId).eq('status', 'COMPLETED'),
-      count(TABLES.bookings).eq('user_id', userId).eq('status', 'PENDING'),
+      count(TABLES.reservations).eq('user_id', userId).in('status', ['PENDING', 'APPROVED']).gte('reservation_date', today),
+      count(TABLES.reservations).eq('user_id', userId).eq('status', 'APPROVED').gt('reservation_date', today),
+      count(TABLES.reservations).eq('user_id', userId).eq('status', 'COMPLETED'),
+      count(TABLES.reservations).eq('user_id', userId).eq('status', 'PENDING'),
       count(TABLES.notifications).eq('user_id', userId).eq('is_read', false),
     ]);
 
   const { data: next } = await supabase
-    .from(TABLES.bookings)
+    .from(TABLES.reservations)
     .select(`
-      id, booking_date, start_time, end_time, status, purpose,
+      id, reservation_date, start_time, end_time, status, purpose,
       computer:computers ( id, name, computer_number, laboratory:laboratories ( name ) )
     `)
     .eq('user_id', userId)
     .in('status', ['PENDING', 'APPROVED'])
-    .gte('booking_date', today)
-    .order('booking_date', { ascending: true })
+    .gte('reservation_date', today)
+    .order('reservation_date', { ascending: true })
     .order('start_time', { ascending: true })
     .limit(5);
 
@@ -196,12 +196,12 @@ export const userDashboard = asyncHandler(async (req, res) => {
     data: {
       available_computers: availableComputers.count ?? 0,
       total_computers: totalComputers.count ?? 0,
-      active_bookings: active.count ?? 0,
-      upcoming_bookings: upcoming.count ?? 0,
-      completed_bookings: completed.count ?? 0,
-      pending_bookings: pending.count ?? 0,
+      active_reservations: active.count ?? 0,
+      upcoming_reservations: upcoming.count ?? 0,
+      completed_reservations: completed.count ?? 0,
+      pending_reservations: pending.count ?? 0,
       unread_notifications: unread.count ?? 0,
-      next_bookings: (next ?? []).map((row) => ({
+      next_reservations: (next ?? []).map((row) => ({
         ...row,
         computer: Array.isArray(row.computer) ? row.computer[0] : row.computer,
       })),

@@ -7,7 +7,7 @@ import StatusBadge from '../../components/StatusBadge.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import ErrorState from '../../components/ErrorState.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
-import { EnergyAreaChart, BookingBarChart, BreakdownDonut } from '../../components/charts.jsx';
+import { EnergyAreaChart, ReservationBarChart, BreakdownDonut } from '../../components/charts.jsx';
 import { formatCurrency, formatDate, formatTimeRange, timeAgo } from '../../utils/format.js';
 
 export default function AdminDashboard() {
@@ -22,7 +22,7 @@ export default function AdminDashboard() {
   if (loading && !stats) return <Spinner label="Loading dashboard…" />;
   if (error) return <ErrorState message={error} onRetry={refetch} />;
 
-  const { computers, bookings, users, energy, recent_bookings: recent } = stats;
+  const { computers, reservations, users, energy, recent_reservations: recent } = stats;
 
   const computerBreakdown = [
     { name: 'Available', value: computers.available, color: '#2f7d54' },
@@ -48,10 +48,10 @@ export default function AdminDashboard() {
           </p>
         </div>
         <div className="row">
-          <Link to="/admin/bookings" className="btn btn-secondary">
-            Review bookings
-            {bookings.pending > 0 && (
-              <span className="badge badge-brand badge-plain">{bookings.pending}</span>
+          <Link to="/admin/reservations" className="btn btn-secondary">
+            Review reservations
+            {reservations.pending > 0 && (
+              <span className="badge badge-brand badge-plain">{reservations.pending}</span>
             )}
           </Link>
           <Link to="/admin/monitoring" className="btn btn-primary">
@@ -76,15 +76,15 @@ export default function AdminDashboard() {
           icon="✓"
         />
         <StatCard
-          label="Pending bookings"
-          value={bookings.pending}
+          label="Pending reservations"
+          value={reservations.pending}
           hint="Awaiting your approval"
-          tone={bookings.pending > 0 ? 'warning' : 'neutral'}
+          tone={reservations.pending > 0 ? 'warning' : 'neutral'}
           icon="⏳"
         />
         <StatCard
-          label="Today's bookings"
-          value={bookings.today}
+          label="Today's reservations"
+          value={reservations.today}
           hint="Scheduled for today"
           tone="info"
           icon="🗓"
@@ -122,11 +122,11 @@ export default function AdminDashboard() {
 
         <section className="card">
           <div className="card-header">
-            <h2>Booking activity · last 7 days</h2>
+            <h2>Reservation activity · last 7 days</h2>
           </div>
           <div className="card-body">
             <div className="chart-box">
-              <BookingBarChart data={bookings.weekly} />
+              <ReservationBarChart data={reservations.weekly} />
             </div>
           </div>
         </section>
@@ -162,14 +162,14 @@ export default function AdminDashboard() {
 
       <section className="card">
         <div className="card-header">
-          <h2>Latest booking requests</h2>
-          <Link to="/admin/bookings" className="small">
+          <h2>Latest reservation requests</h2>
+          <Link to="/admin/reservations" className="small">
             View all
           </Link>
         </div>
 
         {recent.length === 0 ? (
-          <EmptyState icon="🗓" title="No bookings yet" message="New requests will appear here." />
+          <EmptyState icon="🗓" title="No reservations yet" message="New requests will appear here." />
         ) : (
           <div className="table-wrap">
             <table className="table">
@@ -184,23 +184,23 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {recent.map((booking) => (
-                  <tr key={booking.id}>
+                {recent.map((reservation) => (
+                  <tr key={reservation.id}>
                     <td>
-                      <strong>{booking.user?.full_name ?? '—'}</strong>
+                      <strong>{reservation.user?.full_name ?? '—'}</strong>
                       <div className="small muted">
-                        <StatusBadge value={booking.user?.role} plain />
+                        <StatusBadge value={reservation.user?.role} plain />
                       </div>
                     </td>
-                    <td>{booking.computer?.name ?? '—'}</td>
-                    <td className="nowrap">{formatDate(booking.booking_date)}</td>
+                    <td>{reservation.computer?.name ?? '—'}</td>
+                    <td className="nowrap">{formatDate(reservation.reservation_date)}</td>
                     <td className="nowrap">
-                      {formatTimeRange(booking.start_time, booking.end_time)}
+                      {formatTimeRange(reservation.start_time, reservation.end_time)}
                     </td>
                     <td>
-                      <StatusBadge value={booking.status} />
+                      <StatusBadge value={reservation.status} />
                     </td>
-                    <td className="small muted nowrap">{timeAgo(booking.created_at)}</td>
+                    <td className="small muted nowrap">{timeAgo(reservation.created_at)}</td>
                   </tr>
                 ))}
               </tbody>

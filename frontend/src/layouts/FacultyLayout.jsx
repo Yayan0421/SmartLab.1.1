@@ -6,8 +6,8 @@ import AppShell from './AppShell.jsx';
  */
 const NAV = [
   { to: '/faculty/dashboard', label: 'Dashboard', tabLabel: 'Home', icon: '▤' },
-  { to: '/faculty/book', label: 'Book a Computer', tabLabel: 'Book', icon: '➕' },
-  { to: '/faculty/bookings', label: 'My Bookings', tabLabel: 'Bookings', icon: '🗓' },
+  { to: '/faculty/reserve', label: 'Reserve a Computer', tabLabel: 'Reserve', icon: '➕' },
+  { to: '/faculty/reservations', label: 'My Reservations', tabLabel: 'Reservations', icon: '🗓' },
   { to: '/faculty/profile', label: 'My Profile', tabLabel: 'Profile', icon: '🪪' },
 ];
 

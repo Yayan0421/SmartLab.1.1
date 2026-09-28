@@ -1,7 +1,7 @@
 /**
  * Seeds a working SMARTLAB dataset:
  *   1 laboratory, 30 computers, demo accounts for each role,
- *   ~40 extra users, bookings across a 10-day window, telemetry,
+ *   ~40 extra users, reservations across a 10-day window, telemetry,
  *   and 24 hours of energy readings.
  *
  * Re-running is safe: existing rows are matched on their natural keys.
@@ -205,10 +205,10 @@ async function seedEnergy(computers) {
   console.log(`  ${rows.length} energy readings inserted`);
 }
 
-async function seedBookings(computers, users) {
-  const { count } = await supabase.from(TABLES.bookings).select('id', { count: 'exact', head: true });
+async function seedReservations(computers, users) {
+  const { count } = await supabase.from(TABLES.reservations).select('id', { count: 'exact', head: true });
   if ((count ?? 0) > 20) {
-    console.log('  bookings already present, skipping');
+    console.log('  reservations already present, skipping');
     return;
   }
 
@@ -225,7 +225,7 @@ async function seedBookings(computers, users) {
     ['16:00:00', '17:00:00'],
   ];
 
-  // The laboratory opens Monday to Thursday, so demo bookings only land on
+  // The laboratory opens Monday to Thursday, so demo reservations only land on
   // those days — otherwise the sample data would contradict the rule the
   // API enforces.
   const OPEN_DAYS = [1, 2, 3, 4];
@@ -253,7 +253,7 @@ async function seedBookings(computers, users) {
       rows.push({
         user_id: user.id,
         computer_id: computer.id,
-        booking_date: date,
+        reservation_date: date,
         start_time,
         end_time,
         purpose: pick(PURPOSES),
@@ -265,11 +265,11 @@ async function seedBookings(computers, users) {
   }
 
   for (let i = 0; i < rows.length; i += 200) {
-    const { error } = await supabase.from(TABLES.bookings).insert(rows.slice(i, i + 200));
-    if (error) throw new Error(`bookings: ${error.message}`);
+    const { error } = await supabase.from(TABLES.reservations).insert(rows.slice(i, i + 200));
+    if (error) throw new Error(`reservations: ${error.message}`);
   }
 
-  console.log(`  ${rows.length} bookings inserted`);
+  console.log(`  ${rows.length} reservations inserted`);
 }
 
 async function seedNotifications(userIds) {
@@ -277,9 +277,9 @@ async function seedNotifications(userIds) {
   if ((count ?? 0) > 5) return;
 
   const samples = [
-    { title: 'Welcome to SMARTLAB', message: 'Your account is ready. Book a computer from your dashboard.', type: 'info' },
+    { title: 'Welcome to SMARTLAB', message: 'Your account is ready. Reserve a computer from your dashboard.', type: 'info' },
     { title: 'Laboratory maintenance', message: 'PC-13 is under maintenance until further notice.', type: 'warning' },
-    { title: 'Booking reminder', message: 'You have an upcoming session this week.', type: 'booking' },
+    { title: 'Reservation reminder', message: 'You have an upcoming session this week.', type: 'reservation' },
   ];
 
   const rows = userIds.flatMap((id) => samples.map((s) => ({ ...s, user_id: id })));
@@ -329,7 +329,7 @@ async function main() {
   await seedEnergy(computers);
 
   const allUsers = [...demoIds, ...extraIds].map((id) => ({ id }));
-  await seedBookings(computers, allUsers);
+  await seedReservations(computers, allUsers);
 
   await seedNotifications(demoIds);
   console.log('  notifications ready');

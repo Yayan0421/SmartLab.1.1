@@ -37,23 +37,23 @@ function listDays(days) {
 const daysAhead = labDaysAhead;
 
 /**
- * Runs every server-side rule a booking must satisfy before it is written.
+ * Runs every server-side rule a reservation must satisfy before it is written.
  * Called by the controller, never by the client, so bypassing the React
  * form changes nothing.
  *
  * Returns the resolved computer and the policy in force.
  */
-export async function validateBookingRequest({
+export async function validateReservationRequest({
   user,
   payload,
-  excludeBookingId = null,
+  excludeReservationId = null,
   // Bulk reservations check the per-user cap once for the whole request, and
   // allow the same person to hold several machines in the same slot.
   skipUserLimit = false,
   skipSelfOverlap = false,
 }) {
-  const { computer_id, booking_date, start_time, end_time } = payload;
-  const policy = await getSetting('booking');
+  const { computer_id, reservation_date, start_time, end_time } = payload;
+  const policy = await getSetting('reservation');
 
   // 3. The computer exists.
   const { data: computer, error: computerError } = await supabase
@@ -65,20 +65,20 @@ export async function validateBookingRequest({
   if (computerError) throw ApiError.internal();
   if (!computer) throw ApiError.notFound('That computer could not be found.');
 
-  // 4. The computer can be booked.
+  // 4. The computer can be reserved.
   if (!computer.is_bookable) {
-    throw ApiError.conflict(`${computer.name} is not available for booking.`);
+    throw ApiError.conflict(`${computer.name} is not available for reservation.`);
   }
   if (computer.status === 'MAINTENANCE') {
-    throw ApiError.conflict(`${computer.name} is under maintenance and cannot be booked.`);
+    throw ApiError.conflict(`${computer.name} is under maintenance and cannot be reserved.`);
   }
 
   // 5-8. Date and time sanity. Ordering is also enforced by the Zod schema
   // and by a CHECK constraint in the database.
-  const offset = daysAhead(booking_date);
-  if (offset < 0) throw ApiError.badRequest('You cannot book a date in the past.');
+  const offset = daysAhead(reservation_date);
+  if (offset < 0) throw ApiError.badRequest('You cannot reserve a date in the past.');
   if (offset > policy.advance_days) {
-    throw ApiError.badRequest(`Bookings can be made up to ${policy.advance_days} days in advance.`);
+    throw ApiError.badRequest(`Reservations can be made up to ${policy.advance_days} days in advance.`);
   }
   if (start_time >= end_time) {
     throw ApiError.badRequest('The end time must be after the start time.');
@@ -86,7 +86,7 @@ export async function validateBookingRequest({
 
   // The laboratory is only open on certain days, between certain hours.
   const openDays = policy.open_days ?? [1, 2, 3, 4];
-  const weekday = weekdayOf(booking_date);
+  const weekday = weekdayOf(reservation_date);
   if (!openDays.includes(weekday)) {
     throw ApiError.badRequest(
       `The laboratory is closed on ${DAY_NAMES[weekday]}. It is open ${listDays(openDays)}.`
@@ -102,65 +102,65 @@ export async function validateBookingRequest({
   }
 
   const duration = hoursBetween(start_time, end_time);
-  if (duration > policy.max_hours_per_booking) {
+  if (duration > policy.max_hours_per_reservation) {
     throw ApiError.badRequest(
-      `A single booking cannot exceed ${policy.max_hours_per_booking} hours.`
+      `A single reservation cannot exceed ${policy.max_hours_per_reservation} hours.`
     );
   }
 
-  // If the booking is for today, the slot must not already have ended.
+  // If the reservation is for today, the slot must not already have ended.
   if (offset === 0 && end_time <= labClock()) {
     throw ApiError.badRequest('That time slot has already passed.');
   }
 
-  // 9. No conflicting booking on the same machine.
+  // 9. No conflicting reservation on the same machine.
   let conflictQuery = supabase
-    .from(TABLES.bookings)
+    .from(TABLES.reservations)
     .select('id, start_time, end_time')
     .eq('computer_id', computer_id)
-    .eq('booking_date', booking_date)
+    .eq('reservation_date', reservation_date)
     .in('status', ACTIVE_STATES)
     // Two ranges overlap when each starts before the other ends.
     .lt('start_time', end_time)
     .gt('end_time', start_time);
 
-  if (excludeBookingId) conflictQuery = conflictQuery.neq('id', excludeBookingId);
+  if (excludeReservationId) conflictQuery = conflictQuery.neq('id', excludeReservationId);
 
   const { data: conflicts, error: conflictError } = await conflictQuery;
   if (conflictError) throw ApiError.internal();
   if (conflicts?.length) {
-    throw ApiError.conflict('This computer is already booked during the selected time.');
+    throw ApiError.conflict('This computer is already reserved during the selected time.');
   }
 
-  // The same user must not double-book themselves across machines either.
+  // The same user must not double-reserve themselves across machines either.
   if (!skipSelfOverlap) {
     let selfQuery = supabase
-      .from(TABLES.bookings)
+      .from(TABLES.reservations)
       .select('id')
       .eq('user_id', user.id)
-      .eq('booking_date', booking_date)
+      .eq('reservation_date', reservation_date)
       .in('status', ACTIVE_STATES)
       .lt('start_time', end_time)
       .gt('end_time', start_time);
 
-    if (excludeBookingId) selfQuery = selfQuery.neq('id', excludeBookingId);
+    if (excludeReservationId) selfQuery = selfQuery.neq('id', excludeReservationId);
 
     const { data: selfClash } = await selfQuery;
     if (selfClash?.length) {
-      throw ApiError.conflict('You already have another booking during that time.');
+      throw ApiError.conflict('You already have another reservation during that time.');
     }
   }
 
   // ------------------------------------------------------------------
   // Faculty priority: a class reservation takes the whole laboratory.
   // Checked before the student's own allowance, because "the room is
-  // booked for a class" is the more useful message of the two.
+  // reserved for a class" is the more useful message of the two.
   // ------------------------------------------------------------------
   if (user.role === 'student' && policy.faculty_priority !== false) {
     const { data: overlapping } = await supabase
-      .from(TABLES.bookings)
-      .select('id, start_time, end_time, user:users!bookings_user_id_fkey ( role, full_name ), computer:computers ( laboratory_id )')
-      .eq('booking_date', booking_date)
+      .from(TABLES.reservations)
+      .select('id, start_time, end_time, user:users!reservations_user_id_fkey ( role, full_name ), computer:computers ( laboratory_id )')
+      .eq('reservation_date', reservation_date)
       .in('status', ACTIVE_STATES)
       .lt('start_time', end_time)
       .gt('end_time', start_time);
@@ -187,13 +187,13 @@ export async function validateBookingRequest({
     const maxHours = policy.student_max_hours_per_day ?? 2;
 
     let dayQuery = supabase
-      .from(TABLES.bookings)
+      .from(TABLES.reservations)
       .select('id, start_time, end_time')
       .eq('user_id', user.id)
-      .eq('booking_date', booking_date)
+      .eq('reservation_date', reservation_date)
       .in('status', ACTIVE_STATES);
 
-    if (excludeBookingId) dayQuery = dayQuery.neq('id', excludeBookingId);
+    if (excludeReservationId) dayQuery = dayQuery.neq('id', excludeReservationId);
 
     const { data: sameDay } = await dayQuery;
     const alreadyBooked = (sameDay ?? []).reduce(
@@ -206,29 +206,29 @@ export async function validateBookingRequest({
       throw ApiError.conflict(
         left === 0
           ? `You have already used your ${maxHours} hours for that day.`
-          : `Students may book ${maxHours} hours a day. You have ${left} hour${left === 1 ? '' : 's'} left on that day.`
+          : `Students may reserve ${maxHours} hours a day. You have ${left} hour${left === 1 ? '' : 's'} left on that day.`
       );
     }
   }
 
-  // 10. Active booking cap. This one is a student rule: a faculty class
+  // 10. Active reservation cap. This one is a student rule: a faculty class
   // reservation is one session but thirty rows, so counting rows would stop
-  // faculty booking the room at all. Faculty and admins are bounded instead
+  // faculty reservation the room at all. Faculty and admins are bounded instead
   // by opening hours and by conflicts with existing reservations.
   if (user.role === 'student' && !skipUserLimit) {
     let activeQuery = supabase
-      .from(TABLES.bookings)
+      .from(TABLES.reservations)
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .in('status', ACTIVE_STATES)
-      .gte('booking_date', todayISO());
+      .gte('reservation_date', todayISO());
 
-    if (excludeBookingId) activeQuery = activeQuery.neq('id', excludeBookingId);
+    if (excludeReservationId) activeQuery = activeQuery.neq('id', excludeReservationId);
 
     const { count } = await activeQuery;
     if ((count ?? 0) >= policy.max_active_per_user) {
       throw ApiError.conflict(
-        `You have reached the limit of ${policy.max_active_per_user} active bookings. Cancel one before creating another.`
+        `You have reached the limit of ${policy.max_active_per_user} active reservations. Cancel one before creating another.`
       );
     }
   }
@@ -236,7 +236,7 @@ export async function validateBookingRequest({
   return { computer, policy, duration };
 }
 
-/** Which initial status a new booking gets, per role and policy. */
+/** Which initial status a new reservation gets, per role and policy. */
 export function resolveInitialStatus(role, policy) {
   if (isAdminLike(role)) return 'APPROVED';
   if (role === 'faculty' && policy.auto_approve_faculty) return 'APPROVED';
@@ -245,28 +245,28 @@ export function resolveInitialStatus(role, policy) {
 }
 
 /**
- * Marks past-dated active bookings as COMPLETED / EXPIRED.
+ * Marks past-dated active reservations as COMPLETED / EXPIRED.
  * Runs on a timer from server.js rather than on every request.
  */
-export async function sweepStaleBookings() {
+export async function sweepStaleReservations() {
   const today = todayISO();
   const clock = labClock();
 
   const { error: completedError } = await supabase
-    .from(TABLES.bookings)
+    .from(TABLES.reservations)
     .update({ status: 'COMPLETED' })
     .eq('status', 'APPROVED')
-    .or(`booking_date.lt.${today},and(booking_date.eq.${today},end_time.lte.${clock})`);
+    .or(`reservation_date.lt.${today},and(reservation_date.eq.${today},end_time.lte.${clock})`);
 
   const { error: expiredError } = await supabase
-    .from(TABLES.bookings)
+    .from(TABLES.reservations)
     .update({ status: 'EXPIRED' })
     .eq('status', 'PENDING')
-    .or(`booking_date.lt.${today},and(booking_date.eq.${today},end_time.lte.${clock})`);
+    .or(`reservation_date.lt.${today},and(reservation_date.eq.${today},end_time.lte.${clock})`);
 
   if (completedError || expiredError) {
-    console.error('[sweep] booking sweep failed:', completedError?.message || expiredError?.message);
+    console.error('[sweep] reservation sweep failed:', completedError?.message || expiredError?.message);
   }
 }
 
-export default { validateBookingRequest, resolveInitialStatus, sweepStaleBookings, ACTIVE_STATES };
+export default { validateReservationRequest, resolveInitialStatus, sweepStaleReservations, ACTIVE_STATES };
