@@ -13,7 +13,7 @@ on the workstation and no firewall rule is required here.
 | Heartbeat | CPU, RAM, disk, temperature and uptime every 15s |
 | Screen | A small JPEG of the desktop every 10s |
 | Commands | Polls every 3s for: shut down, restart, lock, warning message |
-| State | Reports who is signed in, and the MAC address used for Wake-on-LAN |
+| State | Reports who is signed in and whether the session is locked |
 
 ## Requirements
 
@@ -32,20 +32,23 @@ on the workstation and no firewall rule is required here.
 
 The machine appears under **Admin → Monitoring** within a few seconds.
 
+### The name has to exist already
+
+The agent does not create a computer. It looks for one whose name matches
+`SMARTLAB_COMPUTER` and is refused if there is none, so the machine has to
+be in the `computers` table first. The seed creates `PC-01` to `PC-30`.
+
+### While the server uses a self-signed certificate
+
+`start-agent.bat` sets `NODE_TLS_REJECT_UNAUTHORIZED=0`. A browser offers
+to let you through the warning once; Node does not ask, it refuses, and the
+agent fails with `fetch failed` before reaching the API at all. Remove that
+line once the server has a real certificate.
+
 ## Running it automatically at startup
 
 Press `Win + R`, type `shell:startup`, and put a shortcut to
 `start-agent.bat` in the folder that opens.
-
-## Wake-on-LAN
-
-Powering a machine on is the one thing the agent cannot do — it is not
-running. The server sends a wake packet instead, which needs:
-
-- **Wake-on-LAN enabled in the BIOS** and in the network adapter's
-  properties (Device Manager → adapter → Power Management)
-- The server on the **same subnet**, since a broadcast does not cross routers
-- The MAC address recorded, which the agent reports on its first run
 
 ## Notes
 
