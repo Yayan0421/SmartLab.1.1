@@ -16,6 +16,12 @@ import { formatUptime, meterTone, timeAgo } from '../../utils/format.js';
 
 const REFRESH_MS = 15_000;
 
+// Screens are polled on their own, faster clock. CPU and memory can lag a
+// few seconds without anybody minding; a still image of what somebody is
+// doing right now cannot, and at the shared interval the worst case was the
+// agent's capture gap plus this one - around twenty-five seconds.
+const SCREEN_REFRESH_MS = 4_000;
+
 /**
  * Live monitoring wall.
  *
@@ -38,10 +44,8 @@ export default function AdminMonitoring() {
     []
   );
 
-  usePolling(() => {
-    refetch();
-    refetchScreens();
-  }, REFRESH_MS);
+  usePolling(refetch, REFRESH_MS);
+  usePolling(refetchScreens, SCREEN_REFRESH_MS);
 
   const payload = data?.data;
   // Keyed by computer id by the API, so each tile looks its own up directly.

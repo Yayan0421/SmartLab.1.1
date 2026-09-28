@@ -36,7 +36,7 @@ const AGENT_KEY = process.env.SMARTLAB_AGENT_KEY || '';
 const COMPUTER_NAME = process.env.SMARTLAB_COMPUTER || os.hostname();
 
 const HEARTBEAT_MS = Number(process.env.SMARTLAB_HEARTBEAT_MS || 15_000);
-const SCREEN_MS = Number(process.env.SMARTLAB_SCREEN_MS || 10_000);
+const SCREEN_MS = Number(process.env.SMARTLAB_SCREEN_MS || 5_000);
 const POLL_MS = Number(process.env.SMARTLAB_POLL_MS || 3_000);
 const SCREEN_WIDTH = Number(process.env.SMARTLAB_SCREEN_WIDTH || 480);
 
@@ -370,13 +370,21 @@ $b.Height
   };
 }
 
+// A capture spawns PowerShell, draws the desktop and encodes a JPEG, which
+// can outlast the interval on a slow machine. Without this guard those calls
+// would stack up and the agent would spend its life screenshotting.
+let capturing = false;
+
 async function uploadScreen() {
-  if (!isWindows) return;
+  if (!isWindows || capturing) return;
+  capturing = true;
   try {
     const shot = await captureScreen();
     await api(`/control/agent/${computerId}/screen`, { method: 'POST', body: shot });
   } catch (error) {
     log('screen capture failed:', error.message);
+  } finally {
+    capturing = false;
   }
 }
 
