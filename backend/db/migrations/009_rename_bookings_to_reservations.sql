@@ -47,12 +47,6 @@ begin
     alter type booking_state rename to reservation_state;
   end if;
 
-  -- ---------------------------------------------------------------
-  -- The check constraint
-  -- ---------------------------------------------------------------
-  if exists (select 1 from pg_constraint where conname = 'bookings_time_order') then
-    alter table reservations rename constraint bookings_time_order to reservations_time_order;
-  end if;
 
   -- ---------------------------------------------------------------
   -- The updated_at trigger
@@ -86,6 +80,34 @@ begin
 
 end
 $rename$;
+
+
+-- ---------------------------------------------------------------------
+-- Every constraint the table carries: the primary key, the three foreign
+-- keys and the check.
+--
+-- The foreign keys matter more than they look. PostgREST embeds a related
+-- row by naming the constraint - users!reservations_user_id_fkey - and the
+-- API does exactly that in six places. Rename the table without renaming
+-- the constraint and every one of those queries fails, which reads as a
+-- 500 with nothing obviously wrong in the code.
+-- ---------------------------------------------------------------------
+do $con$
+declare
+  c record;
+begin
+  for c in
+    select conname
+      from pg_constraint
+     where conrelid = 'public.reservations'::regclass
+       and conname like 'bookings%'
+  loop
+    execute format('alter table reservations rename constraint %I to %I',
+                   c.conname,
+                   replace(c.conname, 'bookings_', 'reservations_'));
+  end loop;
+end
+$con$;
 
 
 -- ---------------------------------------------------------------------
