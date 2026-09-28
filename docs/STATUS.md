@@ -65,10 +65,16 @@ still asks for `bookings`. Localhost is fine; the hosted site is not.
 3. **Reload the kiosk device.** It asks for `/api/bookings`, which is gone.
    Restarting it is not enough; the page has to be reloaded.
 
-## Migrations already run on this database
+## Migrations
+
+Already run on this database:
 
 - `001_super_admin.sql` — two steps, run separately
 - `009_rename_bookings_to_reservations.sql` — one paste
+
+Still to run:
+
+- `010_drop_mac_address.sql` — one statement, **not reversible**
 
 Both are safe to run again. A fresh database needs neither: `schema.sql`
 already has the super_admin role and the reservations table.
@@ -109,6 +115,12 @@ isolation. No setting fixes that; use a phone hotspot.
 - **Historical migrations were not rewritten.** They record what already
   ran. Only `schema.sql` was updated, because that is the fresh-install
   path.
+- **No Wake-on-LAN.** The MAC address was kept for one purpose, the
+  "Power on" button that woke a switched-off machine, and both are gone. A
+  MAC identifies a physical device, so once the reason to hold one
+  disappeared, holding it was not defensible. Shut down, restart, freeze,
+  unfreeze, message and screenshot are unaffected - they are queued and
+  collected by a running agent, which never needed a MAC.
 - **`/admin/laboratories` is open to both administrator roles** but its
   only screen was the Settings tab, which is now super-admin only. An
   ordinary admin can no longer create a laboratory from the UI.

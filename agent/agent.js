@@ -269,18 +269,6 @@ async function loggedInUser() {
   }
 }
 
-/** MAC address of the active adapter, so the server can wake this machine. */
-function macAddress() {
-  for (const addresses of Object.values(os.networkInterfaces())) {
-    for (const address of addresses ?? []) {
-      if (!address.internal && address.mac && address.mac !== '00:00:00:00:00:00') {
-        return address.mac.toUpperCase();
-      }
-    }
-  }
-  return null;
-}
-
 // ---------------------------------------------------------------------
 // Registration: find this machine's id on the server
 // ---------------------------------------------------------------------
@@ -302,7 +290,7 @@ async function register() {
 
   await api(`/control/agent/${computerId}/state`, {
     method: 'PATCH',
-    body: { mac_address: macAddress(), logged_in_user: await loggedInUser(), is_locked: false },
+    body: { logged_in_user: await loggedInUser(), is_locked: false },
   });
 }
 

@@ -7,8 +7,10 @@ export const SCREENS_TABLE = 'computer_screens';
 /**
  * What an administrator may ask a workstation to do.
  *
- * `wake` is the odd one out: a machine that is off cannot poll for work, so
- * the server sends a Wake-on-LAN packet itself rather than queueing it.
+ * Every one of these is queued and collected by the agent the next time it
+ * checks in, so they all need the machine to be running. There is no way to
+ * power one on from here: that needed the MAC address, and the system no
+ * longer keeps one.
  */
 export const ACTIONS = {
   shutdown: { label: 'Shut down', confirm: true },
@@ -17,7 +19,6 @@ export const ACTIONS = {
   unlock: { label: 'Unfreeze', confirm: false },
   message: { label: 'Send warning', confirm: false },
   screenshot: { label: 'Capture screen', confirm: false },
-  wake: { label: 'Power on', confirm: false, serverSide: true },
 };
 
 /** A queued command older than this is assumed missed and is expired. */

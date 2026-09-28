@@ -98,19 +98,6 @@ export default function ControlPanel({ computer, onDone }) {
         >
           ⏻ Shut down
         </button>
-
-        {/* Only useful when the machine is off — that is the point of it. */}
-        {!online && (
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={() => send('wake')}
-            disabled={busy}
-            title="Send a Wake-on-LAN signal"
-          >
-            ⏻ Power on
-          </button>
-        )}
       </div>
 
       {/* --- warning message --- */}

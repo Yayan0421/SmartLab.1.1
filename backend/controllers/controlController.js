@@ -12,7 +12,6 @@ import {
   claimCommands,
   completeCommand,
 } from '../services/commandService.js';
-import { sendMagicPacket } from '../services/wakeOnLan.js';
 
 const SCREEN_BUCKET = 'screens';
 const MAX_SCREEN_BYTES = 900_000;
@@ -34,7 +33,7 @@ export const sendCommand = asyncHandler(async (req, res) => {
 
   const { data: computer, error } = await supabase
     .from(TABLES.computers)
-    .select('id, name, mac_address, logged_in_user, current_user_id')
+    .select('id, name, logged_in_user, current_user_id')
     .eq('id', computerId)
     .maybeSingle();
 
@@ -47,25 +46,6 @@ export const sendCommand = asyncHandler(async (req, res) => {
     entityId: computer.id,
     details: { computer: computer.name, message: req.body?.message ?? null },
   });
-
-  // Waking a machine cannot be queued — it is not running to collect it.
-  if (action === 'wake') {
-    if (!computer.mac_address) {
-      throw ApiError.badRequest(
-        `${computer.name} has no MAC address recorded, so it cannot be woken. Add one in Computers.`
-      );
-    }
-    try {
-      const result = await sendMagicPacket(computer.mac_address);
-      return res.json({
-        success: true,
-        message: `Wake signal sent to ${computer.name}.`,
-        data: result,
-      });
-    } catch (wakeError) {
-      throw ApiError.badRequest(wakeError.message);
-    }
-  }
 
   const payload = {};
   if (action === 'message') {
@@ -219,9 +199,6 @@ export const agentState = asyncHandler(async (req, res) => {
     patch.logged_in_user = String(req.body.logged_in_user ?? '').slice(0, 120) || null;
   }
   if (req.body?.is_locked !== undefined) patch.is_locked = Boolean(req.body.is_locked);
-  if (req.body?.mac_address !== undefined) {
-    patch.mac_address = String(req.body.mac_address ?? '').slice(0, 32) || null;
-  }
 
   if (!Object.keys(patch).length) return res.json({ success: true });
 

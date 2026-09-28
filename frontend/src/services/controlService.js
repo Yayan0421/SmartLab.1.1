@@ -1,7 +1,7 @@
 import api from './api.js';
 
 export const controlService = {
-  /** Queues a command for a workstation (shutdown, restart, lock, message, wake). */
+  /** Queues a command for a workstation (shutdown, restart, lock, message). */
   send: (computerId, action, body) => api.post(`/control/${computerId}/${action}`, body ?? {}),
 
   /** Latest desktop capture from every machine, keyed by computer id. */
