@@ -145,13 +145,33 @@ export const heartbeat = asyncHandler(async (req, res) => {
 
   if (body.power_watt !== undefined) {
     const voltage = body.voltage ?? 220;
+    // Energy is power integrated over the gap since this machine's previous
+    // reading, not over a fixed minute. The agent's interval is
+    // configurable, so a hard-coded one scaled every total by whatever
+    // ratio the two happened to differ by - at the default 15s, four-fold.
+    const { data: previous } = await supabase
+      .from(TABLES.energyReadings)
+      .select('recorded_at')
+      .eq('computer_id', computer.id)
+      .order('recorded_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    // A first reading has nothing to measure from, and a gap longer than
+    // the offline threshold means the machine was not running for most of
+    // it. Neither books consumption.
+    const gapSeconds = previous
+      ? (new Date(now) - new Date(previous.recorded_at)) / 1000
+      : 0;
+    const billedSeconds =
+      gapSeconds > 0 && gapSeconds <= env.offlineAfterSeconds ? gapSeconds : 0;
+
     await supabase.from(TABLES.energyReadings).insert({
       computer_id: computer.id,
       voltage,
       current_amp: body.current_amp ?? Number((body.power_watt / voltage).toFixed(3)),
       power_watt: body.power_watt,
-      // One reading per minute of runtime: watts -> kWh for that minute.
-      energy_kwh: Number((body.power_watt / 1000 / 60).toFixed(5)),
+      energy_kwh: Number(((body.power_watt / 1000) * (billedSeconds / 3600)).toFixed(5)),
       temperature: body.temperature,
       recorded_at: now,
     });

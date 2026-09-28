@@ -20,6 +20,8 @@
  *   set SMARTLAB_API=http://192.168.1.11:5000/api
  *   set SMARTLAB_AGENT_KEY=<the AGENT_API_KEY from the server .env>
  *   set SMARTLAB_COMPUTER=PC-01
+ *   set SMARTLAB_PZEM_PORT=COM3      (only where an energy meter is fitted)
+ *   set SMARTLAB_CT_TURNS=8          (turns through the current coil)
  *   node agent.js
  * =========================================================================
  */
@@ -37,6 +39,14 @@ const HEARTBEAT_MS = Number(process.env.SMARTLAB_HEARTBEAT_MS || 15_000);
 const SCREEN_MS = Number(process.env.SMARTLAB_SCREEN_MS || 10_000);
 const POLL_MS = Number(process.env.SMARTLAB_POLL_MS || 3_000);
 const SCREEN_WIDTH = Number(process.env.SMARTLAB_SCREEN_WIDTH || 480);
+
+// Energy meter. With no port set the agent reports the same estimate it
+// always did, so machines without a meter are untouched. SMARTLAB_CT_TURNS
+// is how many times the live wire passes through the current coil: looping
+// it lifts a small desktop load off the bottom of a 100 A sensor's range,
+// and every current-derived figure is divided back down by the same count.
+const PZEM_PORT = (process.env.SMARTLAB_PZEM_PORT || '').trim();
+const CT_TURNS = Math.max(1, Number(process.env.SMARTLAB_CT_TURNS || 1));
 
 const isWindows = process.platform === 'win32';
 let computerId = null;
@@ -130,6 +140,122 @@ async function temperature() {
   }
 }
 
+/**
+ * Asks a PZEM-004T v3.0 for one measurement over Modbus RTU.
+ *
+ * The request reads ten input registers from slave 0xF8 and the reply is a
+ * fixed 25 bytes. Current, power and energy arrive as 32-bit values split
+ * across two registers, low half first.
+ *
+ * It goes through PowerShell's SerialPort rather than a Node serial library
+ * so the agent keeps its promise of needing nothing installed but Node.
+ */
+const PZEM_SCRIPT = `
+$ErrorActionPreference = 'Stop'
+$port = $null
+try {
+  $port = New-Object System.IO.Ports.SerialPort('%PORT%', 9600, 'None', 8, 'One')
+  $port.ReadTimeout = 1200
+  $port.WriteTimeout = 1200
+  $port.Open()
+
+  $body = [byte[]]@(0xF8, 0x04, 0x00, 0x00, 0x00, 0x0A)
+  $crc = 0xFFFF
+  foreach ($b in $body) {
+    $crc = $crc -bxor $b
+    for ($i = 0; $i -lt 8; $i++) {
+      if ($crc -band 1) { $crc = ($crc -shr 1) -bxor 0xA001 } else { $crc = $crc -shr 1 }
+    }
+  }
+  $frame = [byte[]]($body + @([byte]($crc -band 0xFF), [byte](($crc -shr 8) -band 0xFF)))
+
+  $port.DiscardInBuffer()
+  $port.Write($frame, 0, $frame.Length)
+
+  $buf = New-Object byte[] 25
+  $got = 0
+  while ($got -lt 25) {
+    $n = $port.Read($buf, $got, 25 - $got)
+    if ($n -le 0) { break }
+    $got += $n
+  }
+  if ($got -lt 25 -or $buf[1] -ne 0x04) { throw 'no reply' }
+
+  $d = $buf[3..22]
+  $volt = ([int]$d[0] -shl 8) -bor [int]$d[1]
+  $amp = (((([int]$d[4] -shl 8) -bor [int]$d[5]) * 65536) + ((([int]$d[2] -shl 8) -bor [int]$d[3])))
+  $watt = (((([int]$d[8] -shl 8) -bor [int]$d[9]) * 65536) + ((([int]$d[6] -shl 8) -bor [int]$d[7])))
+  $wh = (((([int]$d[12] -shl 8) -bor [int]$d[13]) * 65536) + ((([int]$d[10] -shl 8) -bor [int]$d[11])))
+  "$volt,$amp,$watt,$wh"
+} finally {
+  if ($port -and $port.IsOpen) { $port.Close() }
+}
+`;
+
+// Logged only when it changes, so a missing meter does not fill the console.
+let meterOnline = null;
+
+function meterState(online, detail) {
+  if (meterOnline === online) return;
+  meterOnline = online;
+  log(online ? `energy meter on ${PZEM_PORT}: ${detail}` : `energy meter unavailable: ${detail}`);
+}
+
+/**
+ * One reading, or null when there is no meter, no reply, or a figure the
+ * server would reject anyway. The caller then falls back to the estimate,
+ * so a dead sensor never costs us the CPU and memory half of a heartbeat.
+ */
+async function pzemReading() {
+  if (!PZEM_PORT || !isWindows) return null;
+
+  // The port name is interpolated into a script, so it may only ever look
+  // like a port name.
+  if (!/^COM\d+$/i.test(PZEM_PORT)) {
+    meterState(false, `${PZEM_PORT} is not a COM port name`);
+    return null;
+  }
+
+  let out;
+  try {
+    out = await powershell(PZEM_SCRIPT.replace('%PORT%', PZEM_PORT));
+  } catch (error) {
+    meterState(false, error.message.split('\n')[0]);
+    return null;
+  }
+
+  const [rawVolt, rawAmp, rawWatt, rawWh] = out.split(',').map(Number);
+  if (![rawVolt, rawAmp, rawWatt, rawWh].every(Number.isFinite)) {
+    meterState(false, `unreadable reply: ${out}`);
+    return null;
+  }
+
+  const reading = {
+    voltage: Number((rawVolt / 10).toFixed(2)),
+    current: Number((rawAmp / 1000 / CT_TURNS).toFixed(3)),
+    power: Number((rawWatt / 10 / CT_TURNS).toFixed(2)),
+    energyKwh: Number((rawWh / 1000 / CT_TURNS).toFixed(5)),
+  };
+
+  // Zero volts means the meter has USB power but its measuring side is not
+  // wired to the mains yet - the bench-test state. Nothing real to report,
+  // so let the estimate stand.
+  if (reading.voltage < 80) {
+    meterState(false, 'no mains voltage at the meter');
+    return null;
+  }
+
+  // Mirrors the server's own limits; a reading outside them would fail
+  // validation and take the whole heartbeat down with it.
+  if (reading.voltage > 500 || reading.current > 100 || reading.power > 2000) {
+    meterState(false, `implausible reading: ${reading.power} W at ${reading.voltage} V`);
+    return null;
+  }
+
+  meterState(true, `${reading.power} W, ${reading.voltage} V, ${reading.energyKwh} kWh total`);
+  return reading;
+}
+
 /** Who is signed in at the machine. */
 async function loggedInUser() {
   if (!isWindows) return os.userInfo().username;
@@ -186,7 +312,7 @@ async function register() {
 async function heartbeat() {
   try {
     const cpu = cpuUsage();
-    const [disk, temp] = await Promise.all([diskUsage(), temperature()]);
+    const [disk, temp, meter] = await Promise.all([diskUsage(), temperature(), pzemReading()]);
 
     await api('/monitoring/heartbeat', {
       method: 'POST',
@@ -197,8 +323,10 @@ async function heartbeat() {
         disk_usage: disk,
         temperature: temp,
         uptime_seconds: Math.floor(os.uptime()),
-        // Rough estimate: idle draw plus a load-dependent share.
-        power_watt: Number((35 + cpu * 1.1).toFixed(2)),
+        // Measured where a meter is fitted, otherwise the old estimate:
+        // idle draw plus a load-dependent share.
+        power_watt: meter ? meter.power : Number((35 + cpu * 1.1).toFixed(2)),
+        ...(meter ? { voltage: meter.voltage, current_amp: meter.current } : {}),
       },
     });
   } catch (error) {
