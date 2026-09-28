@@ -5,9 +5,23 @@ import { tokenStore } from '../services/api.js';
 const AuthContext = createContext(null);
 
 export const HOME_BY_ROLE = {
+  // A super admin shares the administrator area rather than getting its own
+  // URLs; it simply sees more of it.
+  super_admin: '/admin/dashboard',
   admin: '/admin/dashboard',
   faculty: '/faculty/dashboard',
   student: '/student/dashboard',
+};
+
+/**
+ * Where "my profile" lives per role. Needed because the path is not always
+ * /{role}/profile: super_admin has no area of its own.
+ */
+export const PROFILE_BY_ROLE = {
+  super_admin: '/admin/profile',
+  admin: '/admin/profile',
+  faculty: '/faculty/profile',
+  student: '/student/profile',
 };
 
 export function AuthProvider({ children }) {
@@ -76,6 +90,8 @@ export function AuthProvider({ children }) {
       role: user?.role ?? null,
       // No session: home is the landing page, not the sign-in form.
       homePath: user ? HOME_BY_ROLE[user.role] : '/',
+      profilePath: user ? PROFILE_BY_ROLE[user.role] ?? '/' : '/',
+      isSuperAdmin: user?.role === 'super_admin',
     }),
     [user, loading, login, register, registerAdmin, logout]
   );

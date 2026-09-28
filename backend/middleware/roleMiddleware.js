@@ -1,4 +1,5 @@
 import ApiError from '../utils/ApiError.js';
+import { ADMIN_LIKE, isAdminLike } from '../utils/roles.js';
 
 /**
  * Restricts a route to the listed roles. Always used *after* authenticate,
@@ -17,13 +18,24 @@ export function requireRole(...roles) {
   };
 }
 
-export const requireAdmin = requireRole('admin');
-export const requireStaff = requireRole('admin', 'faculty');
-export const requireAnyRole = requireRole('admin', 'faculty', 'student');
+// A super admin can do everything an admin can, so it passes every guard an
+// admin passes. The narrower requireSuperAdmin is what protects the screens
+// that own the system: administrators, settings and the audit trail.
+export const requireAdmin = requireRole(ADMIN_LIKE);
+export const requireSuperAdmin = requireRole('super_admin');
+export const requireStaff = requireRole(ADMIN_LIKE, 'faculty');
+export const requireAnyRole = requireRole(ADMIN_LIKE, 'faculty', 'student');
 
-/** True when the actor is an admin or is acting on their own record. */
+/** True when the actor is an administrator or is acting on their own record. */
 export function isSelfOrAdmin(req, targetUserId) {
-  return req.user?.role === 'admin' || req.user?.id === targetUserId;
+  return isAdminLike(req.user?.role) || req.user?.id === targetUserId;
 }
 
-export default { requireRole, requireAdmin, requireStaff, requireAnyRole, isSelfOrAdmin };
+export default {
+  requireRole,
+  requireAdmin,
+  requireSuperAdmin,
+  requireStaff,
+  requireAnyRole,
+  isSelfOrAdmin,
+};

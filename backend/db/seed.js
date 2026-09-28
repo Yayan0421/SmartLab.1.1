@@ -19,6 +19,7 @@ const randInt = (min, max) => Math.floor(rand(min, max + 1));
 const pick = (list) => list[randInt(0, list.length - 1)];
 
 const DEMO_USERS = [
+  { full_name: 'System Owner', email: 'superadmin@smartlab.edu', password: 'SuperAdmin@1234', role: 'super_admin', department: 'IT Services' },
   { full_name: 'System Administrator', email: 'admin@smartlab.edu', password: 'Admin@1234', role: 'admin', department: 'IT Services' },
   { full_name: 'Prof. Maria Santos', email: 'faculty@smartlab.edu', password: 'Faculty@1234', role: 'faculty', department: 'Computer Science' },
   { full_name: 'Juan Dela Cruz', email: 'student@smartlab.edu', password: 'Student@1234', role: 'student', department: 'BS Information Technology', id_number: '2024-00001' },
@@ -335,7 +336,7 @@ async function main() {
 
   console.log('\nDone. Sign in with:\n');
   for (const user of DEMO_USERS) {
-    console.log(`  ${user.role.padEnd(8)} ${user.email.padEnd(24)} ${user.password}`);
+    console.log(`  ${user.role.padEnd(12)} ${user.email.padEnd(26)} ${user.password}`);
   }
   console.log('');
 }

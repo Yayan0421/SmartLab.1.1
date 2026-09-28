@@ -19,6 +19,14 @@ export const listAuditLogs = asyncHandler(async (req, res) => {
   if (req.query.action) query = query.eq('action', req.query.action);
   if (req.query.entity) query = query.eq('entity', req.query.entity);
   if (req.query.actor_id) query = query.eq('actor_id', req.query.actor_id);
+  if (req.query.actor) {
+    const actor = `%${String(req.query.actor).replace(/[%_]/g, '')}%`;
+    query = query.ilike('actor_email', actor);
+  }
+  // Named date_from / date_to because getPagination already owns from / to
+  // as row offsets. The end of the range covers the whole day asked for.
+  if (req.query.date_from) query = query.gte('created_at', `${req.query.date_from}T00:00:00`);
+  if (req.query.date_to) query = query.lte('created_at', `${req.query.date_to}T23:59:59.999`);
   if (req.query.search) {
     const term = `%${String(req.query.search).replace(/[%_]/g, '')}%`;
     query = query.or(`actor_email.ilike.${term},action.ilike.${term},entity.ilike.${term}`);

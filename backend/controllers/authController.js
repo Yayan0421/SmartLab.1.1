@@ -6,6 +6,7 @@ import asyncHandler from '../utils/asyncHandler.js';
 import { signToken } from '../utils/jwt.js';
 import { hashPassword, comparePassword } from '../utils/password.js';
 import { recordAudit } from '../services/auditService.js';
+import { isAdminLike } from '../utils/roles.js';
 import { generateQrCode, roleNeedsQrCode } from '../utils/qrCode.js';
 import { uploadAvatar, deleteAvatar } from '../services/avatarService.js';
 import { PUBLIC_FIELDS } from '../utils/userFields.js';
@@ -39,12 +40,12 @@ export const login = asyncHandler(async (req, res) => {
 
   // Keep the two portals separate. Checked here rather than in React so
   // posting straight to the API cannot cross the boundary either.
-  if (portal === 'admin' && user.role !== 'admin') {
+  if (portal === 'admin' && !isAdminLike(user.role)) {
     throw ApiError.forbidden(
       'This sign-in is for administrators. Please use the student and faculty sign-in page.'
     );
   }
-  if (portal === 'public' && user.role === 'admin') {
+  if (portal === 'public' && isAdminLike(user.role)) {
     throw ApiError.forbidden(
       'Administrators sign in through the administrator portal at /admin/login.'
     );
@@ -155,6 +156,8 @@ export const registerAdmin = asyncHandler(async (req, res) => {
       full_name,
       email,
       password_hash: await hashPassword(password),
+      // Always a plain admin. Super admins are never self-service: they
+      // come from the seed, or from another super admin in Manage Admins.
       role: 'admin',
       status: 'active',
       department: department || null,

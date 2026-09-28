@@ -4,6 +4,7 @@ import asyncHandler from '../utils/asyncHandler.js';
 import { getSetting } from '../services/settingsService.js';
 import env from '../config/env.js';
 import { labToday } from '../utils/labTime.js';
+import { ADMIN_LIKE } from '../utils/roles.js';
 
 const todayISO = labToday;
 
@@ -49,7 +50,7 @@ export const adminDashboard = asyncHandler(async (_req, res) => {
     count(TABLES.users).eq('status', 'active'),
     count(TABLES.users).eq('role', 'student'),
     count(TABLES.users).eq('role', 'faculty'),
-    count(TABLES.users).eq('role', 'admin'),
+    count(TABLES.users).in('role', ADMIN_LIKE),
   ]);
 
   const total = totalComputers.count ?? 0;

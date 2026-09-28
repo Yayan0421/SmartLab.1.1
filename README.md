@@ -2,7 +2,7 @@
 
 One React frontend (`:5173`) + one Node/Express API (`:5000`) + one Supabase PostgreSQL database.
 
-Roles: `admin`, `faculty`, `student` — all served by the same app via routes `/admin`, `/faculty`, `/student`.
+Roles: `super_admin`, `admin`, `faculty`, `student` — all served by the same app via routes `/admin`, `/faculty`, `/student`. Super admins share the `/admin` area and see three extra pages.
 
 ## Quick start
 
@@ -24,11 +24,17 @@ npm run dev               # http://localhost:5173
 
 ## Demo accounts (created by `npm run seed`)
 
-| Role    | Email                  | Password      |
-|---------|------------------------|---------------|
-| Admin   | admin@smartlab.edu     | Admin@1234    |
-| Faculty | faculty@smartlab.edu   | Faculty@1234  |
-| Student | student@smartlab.edu   | Student@1234  |
+| Role        | Email                     | Password         |
+|-------------|---------------------------|------------------|
+| Super Admin | superadmin@smartlab.edu   | SuperAdmin@1234  |
+| Admin       | admin@smartlab.edu        | Admin@1234       |
+| Faculty     | faculty@smartlab.edu      | Faculty@1234     |
+| Student     | student@smartlab.edu      | Student@1234     |
+
+Roles run `super_admin` → `admin` → `faculty` / `student`. A super admin owns
+administrator accounts, system settings and the audit log; an admin runs the
+laboratory day to day. See `backend/db/migrations/001_super_admin.sql` when
+upgrading a database that was created before the role existed.
 
 ## Layout
 

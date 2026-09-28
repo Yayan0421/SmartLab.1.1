@@ -2,6 +2,7 @@ import { supabase, TABLES } from '../config/database.js';
 import ApiError from '../utils/ApiError.js';
 import { getSetting } from './settingsService.js';
 import { labToday, labClock, labWeekday, labDaysAhead } from '../utils/labTime.js';
+import { isAdminLike } from '../utils/roles.js';
 
 /** States that still hold a slot on a machine. */
 export const ACTIVE_STATES = ['PENDING', 'APPROVED'];
@@ -237,7 +238,7 @@ export async function validateBookingRequest({
 
 /** Which initial status a new booking gets, per role and policy. */
 export function resolveInitialStatus(role, policy) {
-  if (role === 'admin') return 'APPROVED';
+  if (isAdminLike(role)) return 'APPROVED';
   if (role === 'faculty' && policy.auto_approve_faculty) return 'APPROVED';
   if (role === 'student' && policy.auto_approve_student) return 'APPROVED';
   return 'PENDING';

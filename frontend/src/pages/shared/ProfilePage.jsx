@@ -8,6 +8,7 @@ import QrCard from '../../components/QrCard.jsx';
 import AvatarUpload from '../../components/AvatarUpload.jsx';
 import Avatar from '../../components/Avatar.jsx';
 import Modal from '../../components/Modal.jsx';
+import { isAdminLike } from '../../utils/format.js';
 import { formatDateTime, initials, ROLE_LABEL } from '../../utils/format.js';
 import { PROGRAMS, coursesFor } from '../../utils/labConstants.js';
 
@@ -211,7 +212,7 @@ export default function ProfilePage() {
           </section>
 
           {/* Administrators do not carry a scannable card. */}
-          {user?.role !== 'admin' && (
+          {!isAdminLike(user?.role) && (
             <section className="card">
               <div className="card-header">
                 <h2>My laboratory card</h2>

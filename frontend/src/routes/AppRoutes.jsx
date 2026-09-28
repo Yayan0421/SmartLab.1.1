@@ -31,6 +31,11 @@ const AdminReports = lazy(() => import('../pages/admin/Reports.jsx'));
 const AdminSettings = lazy(() => import('../pages/admin/Settings.jsx'));
 const AdminProfile = lazy(() => import('../pages/admin/Profile.jsx'));
 
+// Super-admin-only screens. Lazy like the rest, so an ordinary admin never
+// downloads the pages their token would be refused on anyway.
+const AdminAdministrators = lazy(() => import('../pages/admin/Administrators.jsx'));
+const AdminAuditLogs = lazy(() => import('../pages/admin/AuditLogs.jsx'));
+
 const FacultyDashboard = lazy(() => import('../pages/faculty/Dashboard.jsx'));
 const FacultyBook = lazy(() => import('../pages/faculty/Book.jsx'));
 const FacultyComputers = lazy(() => import('../pages/faculty/Computers.jsx'));
@@ -72,7 +77,7 @@ export default function AppRoutes() {
 
         {/* Admin — the guard denies faculty and student tokens, and the API
             re-checks the role on every request behind these pages. */}
-        <Route element={<ProtectedRoute allow={['admin']} />}>
+        <Route element={<ProtectedRoute allow={['admin', 'super_admin']} />}>
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<Navigate to="/admin/dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboard />} />
@@ -82,8 +87,16 @@ export default function AppRoutes() {
             <Route path="monitoring" element={<AdminMonitoring />} />
             <Route path="energy" element={<AdminEnergy />} />
             <Route path="reports" element={<AdminReports />} />
-            <Route path="settings" element={<AdminSettings />} />
             <Route path="profile" element={<AdminProfile />} />
+
+            {/* The system itself: only its owner. A plain admin who types
+                one of these URLs is sent back to the dashboard, and the
+                matching API routes refuse the token regardless. */}
+            <Route element={<ProtectedRoute allow={['super_admin']} />}>
+              <Route path="administrators" element={<AdminAdministrators />} />
+              <Route path="audit-logs" element={<AdminAuditLogs />} />
+              <Route path="settings" element={<AdminSettings />} />
+            </Route>
           </Route>
         </Route>
 

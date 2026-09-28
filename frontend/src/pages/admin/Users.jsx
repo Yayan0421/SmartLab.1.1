@@ -13,7 +13,7 @@ import Pagination from '../../components/Pagination.jsx';
 import Modal, { ConfirmDialog } from '../../components/Modal.jsx';
 import QrCard from '../../components/QrCard.jsx';
 import Avatar from '../../components/Avatar.jsx';
-import { formatDateTime, ROLE_LABEL, timeAgo } from '../../utils/format.js';
+import { formatDateTime, isAdminLike, ROLE_LABEL, timeAgo } from '../../utils/format.js';
 import { PROGRAMS, coursesFor } from '../../utils/labConstants.js';
 
 const EMPTY_USER = {
@@ -29,7 +29,7 @@ const EMPTY_USER = {
 };
 
 export default function AdminUsers() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, isSuperAdmin } = useAuth();
   const toast = useToast();
 
   const [search, setSearch] = useState('');
@@ -109,7 +109,11 @@ export default function AdminUsers() {
       <div className="page-head">
         <div>
           <h1>Users</h1>
-          <p className="subtitle">Manage student, faculty and administrator accounts.</p>
+          <p className="subtitle">
+            {isSuperAdmin
+              ? 'Manage student, faculty and administrator accounts.'
+              : 'Manage student and faculty accounts.'}
+          </p>
         </div>
         <button type="button" className="btn btn-primary" onClick={() => setEditing({ ...EMPTY_USER })}>
           Add user
@@ -148,7 +152,8 @@ export default function AdminUsers() {
             aria-label="Filter by role"
           >
             <option value="">All roles</option>
-            <option value="admin">Admin</option>
+            {isSuperAdmin && <option value="super_admin">Super Admin</option>}
+            {isSuperAdmin && <option value="admin">Admin</option>}
             <option value="faculty">Faculty</option>
             <option value="student">Student</option>
           </select>
@@ -244,7 +249,7 @@ export default function AdminUsers() {
                         >
                           Reset
                         </button>
-                        {item.role !== 'admin' && (
+                        {!isAdminLike(item.role) && (
                           <button
                             type="button"
                             className="btn btn-ghost btn-sm"
@@ -293,6 +298,7 @@ export default function AdminUsers() {
       <UserFormModal
         user={editing}
         currentUser={currentUser}
+        isSuperAdmin={isSuperAdmin}
         onClose={() => setEditing(null)}
         onSaved={() => {
           setEditing(null);
@@ -377,7 +383,7 @@ export default function AdminUsers() {
 }
 
 /** Create/edit dialog. The same form serves both, keyed off `user.id`. */
-function UserFormModal({ user, currentUser, onClose, onSaved }) {
+function UserFormModal({ user, currentUser, isSuperAdmin, onClose, onSaved }) {
   const toast = useToast();
   const isEdit = Boolean(user?.id);
   const [form, setForm] = useState(EMPTY_USER);
@@ -531,9 +537,18 @@ function UserFormModal({ user, currentUser, onClose, onSaved }) {
             >
               <option value="student">Student</option>
               <option value="faculty">Faculty</option>
-              <option value="admin">Administrator</option>
+              {/* Granting administrator access belongs to the super admin.
+                  The API refuses it too, so hiding it here only spares an
+                  admin a form that could not be submitted. */}
+              {isSuperAdmin && <option value="admin">Administrator</option>}
+              {isSuperAdmin && <option value="super_admin">Super Administrator</option>}
             </select>
             {isSelf && <span className="small muted">You cannot change your own role.</span>}
+            {!isSuperAdmin && (
+              <span className="small muted">
+                Only a super administrator can grant administrator access.
+              </span>
+            )}
           </div>
 
           <div className="field">

@@ -5,16 +5,14 @@ import { useToast } from '../../context/ToastContext.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import ErrorState from '../../components/ErrorState.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
-import Pagination from '../../components/Pagination.jsx';
 import Modal from '../../components/Modal.jsx';
-import { formatDateTime, timeAgo } from '../../utils/format.js';
+import { timeAgo } from '../../utils/format.js';
 import { DAY_NAMES } from '../../utils/labConstants.js';
 
 const TABS = [
   { key: 'booking', label: 'Booking rules' },
   { key: 'energy', label: 'Energy' },
   { key: 'laboratories', label: 'Laboratories' },
-  { key: 'audit', label: 'Audit log' },
 ];
 
 export default function AdminSettings() {
@@ -25,7 +23,7 @@ export default function AdminSettings() {
       <div className="page-head">
         <div>
           <h1>Settings</h1>
-          <p className="subtitle">System configuration and the administrator audit trail.</p>
+          <p className="subtitle">System configuration. The audit trail now has its own page.</p>
         </div>
       </div>
 
@@ -48,7 +46,6 @@ export default function AdminSettings() {
         {tab === 'booking' && <BookingSettings />}
         {tab === 'energy' && <EnergySettings />}
         {tab === 'laboratories' && <Laboratories />}
-        {tab === 'audit' && <AuditLog />}
       </div>
     </>
   );
@@ -533,82 +530,6 @@ function Laboratories() {
           </div>
         </form>
       </Modal>
-    </>
-  );
-}
-
-function AuditLog() {
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState('');
-
-  const { data, loading, error, refetch } = useFetch(
-    () => adminService.auditLogs({ page, limit: 25, search: search || undefined }),
-    [page, search]
-  );
-
-  const logs = data?.data ?? [];
-
-  return (
-    <>
-      <div className="toolbar">
-        <input
-          className="input search"
-          type="search"
-          placeholder="Search by action, entity or email…"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-          aria-label="Search audit log"
-        />
-      </div>
-
-      {loading && logs.length === 0 ? (
-        <Spinner />
-      ) : error ? (
-        <ErrorState message={error} onRetry={refetch} />
-      ) : logs.length === 0 ? (
-        <EmptyState icon="📋" title="No audit entries" message="Administrator actions are recorded here." />
-      ) : (
-        <>
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>When</th>
-                  <th>Actor</th>
-                  <th>Action</th>
-                  <th>Entity</th>
-                  <th>IP</th>
-                </tr>
-              </thead>
-              <tbody>
-                {logs.map((log) => (
-                  <tr key={log.id}>
-                    <td className="small nowrap" title={formatDateTime(log.created_at)}>
-                      {timeAgo(log.created_at)}
-                    </td>
-                    <td className="small">{log.actor_email ?? 'system'}</td>
-                    <td>
-                      <span className="badge badge-neutral badge-plain">{log.action}</span>
-                    </td>
-                    <td className="small muted">
-                      {log.entity}
-                      {log.entity_id ? (
-                        <span className="mono"> · {String(log.entity_id).slice(0, 8)}</span>
-                      ) : null}
-                    </td>
-                    <td className="small mono muted">{log.ip_address ?? '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <Pagination pagination={data?.pagination} onPageChange={setPage} label="entries" />
-        </>
-      )}
     </>
   );
 }

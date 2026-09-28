@@ -7,15 +7,112 @@ import { recordAudit } from '../services/auditService.js';
 import { generateQrCode, roleNeedsQrCode } from '../utils/qrCode.js';
 import { PUBLIC_FIELDS } from '../utils/userFields.js';
 import { labToday } from '../utils/labTime.js';
+import { isAdminLike, isSuperAdmin, manageableRoles, canManageRole } from '../utils/roles.js';
 
-/** GET /api/users — admin only, paginated and filterable. */
+// ---------------------------------------------------------------------
+// Who may act on whom
+//
+// Administrator accounts belong to the super admin. A plain admin runs the
+// laboratory — computers, bookings, faculty and students — and cannot read,
+// edit or create an account at its own level or above. Every refusal is
+// audited, because an admin reaching for an admin account is worth a record
+// whether or not it succeeded.
+// ---------------------------------------------------------------------
+
+/** Refuses, and logs, when the actor may not touch an account of this role. */
+async function assertCanActOn(req, target) {
+  if (canManageRole(req.user.role, target.role)) return;
+
+  await recordAudit(req, {
+    action: 'admin.permission_denied',
+    entity: 'users',
+    entityId: target.id,
+    details: { actor_role: req.user.role, target_role: target.role },
+  });
+
+  throw ApiError.forbidden('Only a super administrator can manage administrator accounts.');
+}
+
+/** Refuses, and logs, when the actor may not hand out this role. */
+async function assertCanAssignRole(req, role, entityId = null) {
+  if (!role || canManageRole(req.user.role, role)) return;
+
+  await recordAudit(req, {
+    action: 'admin.permission_denied',
+    entity: 'users',
+    entityId,
+    details: { actor_role: req.user.role, attempted_role: role },
+  });
+
+  throw ApiError.forbidden('Only a super administrator can grant administrator access.');
+}
+
+const countActive = async (role) => {
+  const { count } = await supabase
+    .from(TABLES.users)
+    .select('id', { count: 'exact', head: true })
+    .eq('role', role)
+    .eq('status', 'active');
+  return count ?? 0;
+};
+
+/**
+ * Stops the system being left without somebody who can administer it.
+ *
+ * The invariant that matters is the last active super admin: demote,
+ * deactivate or delete them and nobody can ever appoint another. The last
+ * plain admin only matters when there is no super admin above them, since
+ * a super admin can always appoint a replacement.
+ */
+async function assertAdminSurvives(target, { nextRole, nextStatus } = {}) {
+  const staysActive = nextStatus ? nextStatus === 'active' : true;
+
+  if (isSuperAdmin(target.role)) {
+    const staysSuper = nextRole ? isSuperAdmin(nextRole) : true;
+    if (staysSuper && staysActive) return;
+
+    if ((await countActive('super_admin')) <= 1) {
+      throw ApiError.conflict('The system must keep at least one active super administrator.');
+    }
+    return;
+  }
+
+  if (target.role === 'admin') {
+    const staysAdminLike = nextRole ? isAdminLike(nextRole) : true;
+    if (staysAdminLike && staysActive) return;
+
+    const [admins, supers] = await Promise.all([countActive('admin'), countActive('super_admin')]);
+    if (admins <= 1 && supers === 0) {
+      throw ApiError.conflict('The system must keep at least one active administrator.');
+    }
+  }
+}
+
+/** GET /api/users — administrators only, paginated and filterable. */
 export const listUsers = asyncHandler(async (req, res) => {
-  const { page, limit, search, role, status, sort, order } = req.query;
+  const { page, limit, search, role, roles, status, sort, order } = req.query;
   const { from, to } = getPagination({ page, limit });
+
+  // A plain admin sees faculty and students only. Enforced here and not
+  // just in the React filter, so asking for ?role=admin by hand changes
+  // nothing about what comes back.
+  const visibleRoles = manageableRoles(req.user.role);
+  const requestedRoles = roles?.length ? roles : role ? [role] : null;
+
+  if (requestedRoles && requestedRoles.some((item) => !visibleRoles.includes(item))) {
+    await recordAudit(req, {
+      action: 'admin.permission_denied',
+      entity: 'users',
+      details: { actor_role: req.user.role, attempted_filter: requestedRoles },
+    });
+    throw ApiError.forbidden('Only a super administrator can view administrator accounts.');
+  }
 
   let query = supabase.from(TABLES.users).select(PUBLIC_FIELDS, { count: 'exact' });
 
-  if (role) query = query.eq('role', role);
+  if (requestedRoles) query = query.in('role', requestedRoles);
+  else if (!isSuperAdmin(req.user.role)) query = query.in('role', visibleRoles);
+
   if (status) query = query.eq('status', status);
   if (search) {
     const term = `%${search.replace(/[%_]/g, '')}%`;
@@ -34,7 +131,7 @@ export const listUsers = asyncHandler(async (req, res) => {
 /** GET /api/users/stats — role and status breakdown for the dashboard. */
 export const userStats = asyncHandler(async (_req, res) => {
   const counts = await Promise.all(
-    ['admin', 'faculty', 'student'].map((role) =>
+    ['super_admin', 'admin', 'faculty', 'student'].map((role) =>
       supabase.from(TABLES.users).select('id', { count: 'exact', head: true }).eq('role', role)
     )
   );
@@ -49,9 +146,12 @@ export const userStats = asyncHandler(async (_req, res) => {
     data: {
       total: total.count ?? 0,
       active: active.count ?? 0,
-      admins: counts[0].count ?? 0,
-      faculty: counts[1].count ?? 0,
-      students: counts[2].count ?? 0,
+      super_admins: counts[0].count ?? 0,
+      // Both administrator roles, so a dashboard tile counting "admins"
+      // does not quietly omit the person at the top of the hierarchy.
+      admins: (counts[0].count ?? 0) + (counts[1].count ?? 0),
+      faculty: counts[2].count ?? 0,
+      students: counts[3].count ?? 0,
     },
   });
 });
@@ -66,6 +166,9 @@ export const getUser = asyncHandler(async (req, res) => {
 
   if (error) throw ApiError.internal();
   if (!data) throw ApiError.notFound('That user could not be found.');
+
+  // Reading an administrator's record is itself an administrator action.
+  if (data.id !== req.user.id) await assertCanActOn(req, data);
 
   const { count: bookingCount } = await supabase
     .from(TABLES.bookings)
@@ -153,6 +256,8 @@ export const reissueQrCode = asyncHandler(async (req, res) => {
 export const createUser = asyncHandler(async (req, res) => {
   const { password, ...rest } = req.body;
 
+  await assertCanAssignRole(req, rest.role);
+
   const { data: existing } = await supabase
     .from(TABLES.users)
     .select('id')
@@ -181,7 +286,7 @@ export const createUser = asyncHandler(async (req, res) => {
   }
 
   await recordAudit(req, {
-    action: 'user.create',
+    action: isAdminLike(data.role) ? 'admin.create' : 'user.create',
     entity: 'users',
     entityId: data.id,
     details: { role: data.role },
@@ -205,8 +310,14 @@ export const updateUser = asyncHandler(async (req, res) => {
 
   const patch = { ...req.body };
 
-  // Guard rails on self-edits: an admin cannot demote or deactivate the
-  // account they are signed in with, which would lock them out mid-session.
+  // An admin may not edit an account at its own level or above, and may not
+  // promote anybody into one.
+  await assertCanActOn(req, target);
+  await assertCanAssignRole(req, patch.role, targetId);
+
+  // Guard rails on self-edits: an administrator cannot demote or deactivate
+  // the account they are signed in with, which would lock them out
+  // mid-session.
   if (targetId === req.user.id) {
     if (patch.role && patch.role !== target.role) {
       throw ApiError.forbidden('You cannot change your own role.');
@@ -216,18 +327,7 @@ export const updateUser = asyncHandler(async (req, res) => {
     }
   }
 
-  // Never remove the last remaining admin.
-  if (target.role === 'admin' && (patch.role === 'faculty' || patch.role === 'student' || (patch.status && patch.status !== 'active'))) {
-    const { count } = await supabase
-      .from(TABLES.users)
-      .select('id', { count: 'exact', head: true })
-      .eq('role', 'admin')
-      .eq('status', 'active');
-
-    if ((count ?? 0) <= 1) {
-      throw ApiError.conflict('The system must keep at least one active administrator.');
-    }
-  }
+  await assertAdminSurvives(target, { nextRole: patch.role, nextStatus: patch.status });
 
   if (patch.email && patch.email !== target.email) {
     const { data: clash } = await supabase
@@ -252,12 +352,25 @@ export const updateUser = asyncHandler(async (req, res) => {
 
   if (error) throw ApiError.internal();
 
+  const touchesAdmin = isAdminLike(target.role) || isAdminLike(data.role);
+
   await recordAudit(req, {
-    action: 'user.update',
+    action: touchesAdmin ? 'admin.update' : 'user.update',
     entity: 'users',
     entityId: targetId,
     details: patch,
   });
+
+  // A role change is the entry worth finding later, so it gets its own
+  // line rather than hiding inside the details of an update.
+  if (patch.role && patch.role !== target.role) {
+    await recordAudit(req, {
+      action: touchesAdmin ? 'admin.role_change' : 'user.role_change',
+      entity: 'users',
+      entityId: targetId,
+      details: { from: target.role, to: patch.role },
+    });
+  }
 
   res.json({ success: true, data });
 });
@@ -269,11 +382,13 @@ export const resetPassword = asyncHandler(async (req, res) => {
 
   const { data: target } = await supabase
     .from(TABLES.users)
-    .select('id')
+    .select('id, role')
     .eq('id', targetId)
     .maybeSingle();
 
   if (!target) throw ApiError.notFound('That user could not be found.');
+
+  await assertCanActOn(req, target);
 
   const { error } = await supabase
     .from(TABLES.users)
@@ -282,7 +397,11 @@ export const resetPassword = asyncHandler(async (req, res) => {
 
   if (error) throw ApiError.internal();
 
-  await recordAudit(req, { action: 'user.reset_password', entity: 'users', entityId: targetId });
+  await recordAudit(req, {
+    action: isAdminLike(target.role) ? 'admin.reset_password' : 'user.reset_password',
+    entity: 'users',
+    entityId: targetId,
+  });
 
   res.json({
     success: true,
@@ -307,16 +426,8 @@ export const deleteUser = asyncHandler(async (req, res) => {
 
   if (!target) throw ApiError.notFound('That user could not be found.');
 
-  if (target.role === 'admin') {
-    const { count } = await supabase
-      .from(TABLES.users)
-      .select('id', { count: 'exact', head: true })
-      .eq('role', 'admin')
-      .eq('status', 'active');
-    if ((count ?? 0) <= 1) {
-      throw ApiError.conflict('The system must keep at least one active administrator.');
-    }
-  }
+  await assertCanActOn(req, target);
+  await assertAdminSurvives(target, { nextStatus: 'inactive' });
 
   const { error } = await supabase
     .from(TABLES.users)
@@ -325,6 +436,10 @@ export const deleteUser = asyncHandler(async (req, res) => {
 
   if (error) throw ApiError.internal();
 
-  await recordAudit(req, { action: 'user.deactivate', entity: 'users', entityId: targetId });
+  await recordAudit(req, {
+    action: isAdminLike(target.role) ? 'admin.deactivate' : 'user.deactivate',
+    entity: 'users',
+    entityId: targetId,
+  });
   res.json({ success: true, message: 'User deactivated.' });
 });

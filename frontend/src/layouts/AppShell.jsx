@@ -21,7 +21,7 @@ import { ROLE_LABEL } from '../utils/format.js';
  * On a laptop the bar is not rendered at all and nothing changes.
  */
 export default function AppShell({ navItems, roleLabel, bottomNav = false }) {
-  const { user, logout } = useAuth();
+  const { user, logout, profilePath } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -32,7 +32,7 @@ export default function AppShell({ navItems, roleLabel, bottomNav = false }) {
     setSidebarOpen(false);
   }, [location.pathname]);
 
-  const current = navItems.find((item) => location.pathname.startsWith(item.to));
+  const current = navItems.find((item) => item.to && location.pathname.startsWith(item.to));
 
   async function handleLogout() {
     try {
@@ -125,7 +125,7 @@ export default function AppShell({ navItems, roleLabel, bottomNav = false }) {
           <NotificationBell />
 
           <Link
-            to={`/${user?.role}/profile`}
+            to={profilePath}
             className="icon-btn"
             aria-label="Your profile"
             title="Profile"

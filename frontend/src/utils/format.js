@@ -15,12 +15,21 @@ export const STATUS_TONE = {
   active: 'success',
   inactive: 'neutral',
   suspended: 'danger',
+  super_admin: 'danger',
   admin: 'brand',
   faculty: 'info',
   student: 'neutral',
 };
 
-export const ROLE_LABEL = { admin: 'Admin', faculty: 'Faculty', student: 'Student' };
+export const ROLE_LABEL = {
+  super_admin: 'Super Admin',
+  admin: 'Admin',
+  faculty: 'Faculty',
+  student: 'Student',
+};
+
+/** True for an admin or a super admin - the client-side twin of the API's isAdminLike. */
+export const isAdminLike = (role) => role === 'admin' || role === 'super_admin';
 
 /** "PENDING" -> "Pending", "IN_USE" -> "In use" */
 export function humanize(value) {

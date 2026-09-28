@@ -5,6 +5,7 @@ import asyncHandler from '../utils/asyncHandler.js';
 import { getPagination, paginated } from '../utils/pagination.js';
 import { recordAudit } from '../services/auditService.js';
 import { notify, notifyAdmins } from '../services/notificationService.js';
+import { isAdminLike } from '../utils/roles.js';
 import {
   validateBookingRequest,
   resolveInitialStatus,
@@ -192,7 +193,7 @@ export const getBooking = asyncHandler(async (req, res) => {
   if (error) throw ApiError.internal();
   if (!data) throw ApiError.notFound('That booking could not be found.');
 
-  if (req.user.role !== 'admin' && data.user_id !== req.user.id) {
+  if (!isAdminLike(req.user.role) && data.user_id !== req.user.id) {
     throw ApiError.forbidden('You can only view your own bookings.');
   }
 
@@ -355,13 +356,13 @@ export const cancelBooking = asyncHandler(async (req, res) => {
   const booking = await loadForDecision(req.params.id, ['PENDING', 'APPROVED']);
 
   const isOwner = booking.user_id === req.user.id;
-  if (!isOwner && req.user.role !== 'admin') {
+  if (!isOwner && !isAdminLike(req.user.role)) {
     throw ApiError.forbidden('You can only cancel your own bookings.');
   }
 
   // A slot that has already started cannot be cancelled by its owner; an
   // admin still can, to free the machine.
-  if (isOwner && req.user.role !== 'admin') {
+  if (isOwner && !isAdminLike(req.user.role)) {
     const today = todayISO();
     const clock = labClock();
     if (booking.booking_date < today || (booking.booking_date === today && booking.start_time <= clock)) {

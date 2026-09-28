@@ -11,7 +11,7 @@ create extension if not exists "pgcrypto";
 -- Enumerated types
 -- ---------------------------------------------------------------------
 do $enum$ begin
-  create type user_role as enum ('admin', 'faculty', 'student');
+  create type user_role as enum ('super_admin', 'admin', 'faculty', 'student');
 exception when duplicate_object then null; end $enum$;
 
 do $enum$ begin
@@ -37,10 +37,11 @@ create table if not exists roles (
 );
 
 insert into roles (name, description) values
-  ('admin',   'Full system management, monitoring, energy and audit access'),
-  ('faculty', 'Can book computers and manage their own profile'),
-  ('student', 'Can book computers and manage their own profile')
-on conflict (name) do nothing;
+  ('super_admin', 'Owner of the system: manages administrators, system settings and audit logs'),
+  ('admin',       'Day-to-day laboratory management: computers, bookings, monitoring, energy and non-admin users'),
+  ('faculty',     'Can book computers and manage their own profile'),
+  ('student',     'Can book computers and manage their own profile')
+on conflict (name) do update set description = excluded.description;
 
 -- ---------------------------------------------------------------------
 -- users

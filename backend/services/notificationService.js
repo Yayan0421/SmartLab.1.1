@@ -1,4 +1,5 @@
 import { supabase, TABLES } from '../config/database.js';
+import { ADMIN_LIKE } from '../utils/roles.js';
 
 /**
  * Creates a notification for one user. Rows land in a Realtime-enabled
@@ -25,7 +26,7 @@ export async function notifyAdmins({ title, message = '', type = 'info', link = 
     const { data, error } = await supabase
       .from(TABLES.users)
       .select('id')
-      .eq('role', 'admin')
+      .in('role', ADMIN_LIKE)
       .eq('status', 'active');
 
     if (error || !data?.length) return;
