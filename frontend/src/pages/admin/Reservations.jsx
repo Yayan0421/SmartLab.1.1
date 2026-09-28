@@ -32,7 +32,8 @@ export default function AdminReservations() {
   const [tab, setTab] = useState('groups');
 
   const [search, setSearch] = useState('');
-  const [status, setStatus] = useState('');
+  // Pending first, for the same reason the grouped tab does it.
+  const [status, setStatus] = useState('PENDING');
   const [computerId, setComputerId] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -273,7 +274,17 @@ export default function AdminReservations() {
         ) : error ? (
           <ErrorState message={error} onRetry={refetch} />
         ) : reservations.length === 0 ? (
-          <EmptyState icon="🗓" title="No reservations match your filters" />
+          // Same reasoning as the grouped tab: an empty queue is not a
+          // failed search.
+          status === 'PENDING' && !search && !computerId && !dateFrom && !dateTo ? (
+            <EmptyState
+              icon="✅"
+              title="Nothing waiting for a decision"
+              message="New requests appear here as they arrive. Change the filter to see decided ones."
+            />
+          ) : (
+            <EmptyState icon="🗓" title="No reservations match your filters" />
+          )
         ) : (
           <>
             <div className="table-wrap">

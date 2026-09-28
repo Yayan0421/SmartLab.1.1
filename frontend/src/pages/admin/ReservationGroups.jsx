@@ -25,7 +25,10 @@ const STATUSES = ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED', 'COMPLETED', '
 export default function ReservationGroups() {
   const toast = useToast();
 
-  const [status, setStatus] = useState('');
+  // Pending first: an administrator opening this screen is here to decide
+  // something, and everything already decided is only in the way. The filter
+  // is still a dropdown, so the rest is one click away.
+  const [status, setStatus] = useState('PENDING');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [expanded, setExpanded] = useState(null);
@@ -120,7 +123,18 @@ export default function ReservationGroups() {
       ) : error ? (
         <ErrorState message={error} onRetry={refetch} />
       ) : groups.length === 0 ? (
-        <EmptyState icon="🗓" title="No reservations match your filters" />
+        // An empty pending queue is good news, not a failed search. Saying
+        // "nothing matches your filters" to an administrator who has simply
+        // decided everything reads like something went wrong.
+        status === 'PENDING' && !search ? (
+          <EmptyState
+            icon="✅"
+            title="Nothing waiting for a decision"
+            message="New requests appear here as they arrive. Change the filter to see decided ones."
+          />
+        ) : (
+          <EmptyState icon="🗓" title="No reservations match your filters" />
+        )
       ) : (
         <>
           <div className="table-wrap">
