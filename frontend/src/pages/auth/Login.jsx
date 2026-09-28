@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-do
 import { useAuth, HOME_BY_ROLE } from '../../context/AuthContext.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
 import AuthInput from '../../components/AuthInput.jsx';
-import { MailIcon, LockIcon, LoginIcon, UserPlusIcon } from '../../components/icons.jsx';
+import { MailIcon, LockIcon, LoginIcon } from '../../components/icons.jsx';
 import Logo from '../../components/Logo.jsx';
 
 // Administrators are not listed here — they sign in at /admin/login.
@@ -172,19 +172,11 @@ export default function Login() {
             </button>
           </form>
 
-          {/* Registering is a first-class action here, not a footnote: most
-              people arriving at this screen for the first time need it. */}
-          <div className="auth-sep">
-            <span>New to SMARTLAB?</span>
-          </div>
-
-          <Link to="/register" className="auth-secondary">
-            <UserPlusIcon />
-            Create an account
-          </Link>
-
+          {/* There is no signup. Somebody without an account cannot make
+              one here, so the screen says who can. */}
           <p className="auth-hint">
-            Students and faculty — it takes less than a minute.
+            Accounts are issued by the laboratory. Ask an administrator if you
+            do not have one yet.
           </p>
 
           {/* The reference has social sign-in here; SMARTLAB has no external

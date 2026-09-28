@@ -8,7 +8,6 @@ const BASE_NAV = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: '▤' },
   { to: '/admin/monitoring', label: 'Monitoring', icon: '◉' },
   { group: 'Laboratory' },
-  { to: '/admin/computers', label: 'Computers', icon: '🖥' },
   { to: '/admin/bookings', label: 'Bookings', icon: '🗓' },
   { to: '/admin/energy', label: 'Energy', icon: '⚡' },
   { group: 'Administration' },

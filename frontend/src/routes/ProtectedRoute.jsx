@@ -37,7 +37,7 @@ export default function ProtectedRoute({ allow }) {
   return <Outlet />;
 }
 
-/** Keeps a signed-in user off /login and /register. */
+/** Keeps a signed-in user off the sign-in screens. */
 export function PublicOnlyRoute() {
   const { user, loading } = useAuth();
 

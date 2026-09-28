@@ -80,7 +80,7 @@ export default function AdminLogin() {
           <p className="auth-lede">
             Restricted to laboratory administrators.
             <br />
-            Have a code? <Link to="/admin/register">Register an admin account</Link>.
+            Administrator accounts are issued by a super administrator.
           </p>
 
           {banner && (

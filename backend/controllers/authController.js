@@ -1,13 +1,10 @@
-import { timingSafeEqual } from 'node:crypto';
 import { supabase, TABLES } from '../config/database.js';
-import env from '../config/env.js';
 import ApiError from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { signToken } from '../utils/jwt.js';
 import { hashPassword, comparePassword } from '../utils/password.js';
 import { recordAudit } from '../services/auditService.js';
 import { isAdminLike } from '../utils/roles.js';
-import { generateQrCode, roleNeedsQrCode } from '../utils/qrCode.js';
 import { uploadAvatar, deleteAvatar } from '../services/avatarService.js';
 import { PUBLIC_FIELDS } from '../utils/userFields.js';
 
@@ -63,119 +60,6 @@ export const login = asyncHandler(async (req, res) => {
   await recordAudit(req, { action: 'auth.login', entity: 'users', entityId: user.id });
 
   res.json({ success: true, data: { token, user: safeUser } });
-});
-
-/** POST /api/auth/register — self-service signup for faculty and students. */
-export const register = asyncHandler(async (req, res) => {
-  const { full_name, email, password, role, department, course, id_number, phone } = req.body;
-
-  const { data: existing } = await supabase
-    .from(TABLES.users)
-    .select('id')
-    .eq('email', email)
-    .maybeSingle();
-
-  if (existing) throw ApiError.conflict('An account with that email already exists.');
-
-  const password_hash = await hashPassword(password);
-
-  const { data: user, error } = await supabase
-    .from(TABLES.users)
-    .insert({
-      full_name,
-      email,
-      password_hash,
-      role,
-      status: 'active',
-      department: department || null,
-      // A year level describes a student's enrolment; faculty have none.
-      course: role === 'student' ? course || null : null,
-      id_number: id_number || null,
-      phone: phone || null,
-      // Students and faculty get a scannable laboratory card on sign-up.
-      qr_code: roleNeedsQrCode(role) ? generateQrCode() : null,
-    })
-    .select(PUBLIC_FIELDS)
-    .single();
-
-  if (error) {
-    if (error.code === '23505') throw ApiError.conflict('An account with that email already exists.');
-    throw ApiError.internal();
-  }
-
-  const token = signToken(user);
-  req.user = user;
-  await recordAudit(req, { action: 'auth.register', entity: 'users', entityId: user.id, details: { role } });
-
-  res.status(201).json({ success: true, data: { token, user } });
-});
-
-/**
- * POST /api/auth/register-admin
- *
- * Administrator signup, gated by ADMIN_SIGNUP_CODE. Without a configured
- * code the endpoint stays closed, so an unconfigured deployment cannot be
- * used to create administrators.
- */
-export const registerAdmin = asyncHandler(async (req, res) => {
-  const { full_name, email, password, admin_code, department, id_number } = req.body;
-
-  if (!env.adminSignupCode) {
-    throw ApiError.forbidden(
-      'Administrator signup is disabled. Ask an existing administrator to create your account.'
-    );
-  }
-
-  // Compared in constant time so the endpoint cannot be used to guess the
-  // code one character at a time.
-  const provided = Buffer.from(String(admin_code));
-  const expected = Buffer.from(env.adminSignupCode);
-  const valid =
-    provided.length === expected.length && timingSafeEqual(provided, expected);
-
-  if (!valid) {
-    await recordAudit(req, {
-      action: 'auth.admin_signup_denied',
-      entity: 'users',
-      details: { email },
-    });
-    throw ApiError.forbidden('That administrator code is not valid.');
-  }
-
-  const { data: existing } = await supabase
-    .from(TABLES.users)
-    .select('id')
-    .eq('email', email)
-    .maybeSingle();
-
-  if (existing) throw ApiError.conflict('An account with that email already exists.');
-
-  const { data: user, error } = await supabase
-    .from(TABLES.users)
-    .insert({
-      full_name,
-      email,
-      password_hash: await hashPassword(password),
-      // Always a plain admin. Super admins are never self-service: they
-      // come from the seed, or from another super admin in Manage Admins.
-      role: 'admin',
-      status: 'active',
-      department: department || null,
-      id_number: id_number || null,
-    })
-    .select(PUBLIC_FIELDS)
-    .single();
-
-  if (error) {
-    if (error.code === '23505') throw ApiError.conflict('An account with that email already exists.');
-    throw ApiError.internal();
-  }
-
-  const token = signToken(user);
-  req.user = user;
-  await recordAudit(req, { action: 'auth.admin_register', entity: 'users', entityId: user.id });
-
-  res.status(201).json({ success: true, data: { token, user } });
 });
 
 /** GET /api/auth/me */

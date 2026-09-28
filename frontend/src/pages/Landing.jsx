@@ -169,8 +169,8 @@ function Landing() {
               </p>
 
               <div className="cta-row">
-                <Link to="/register" className="primary-btn">
-                  Get Started
+                <Link to="/login" className="primary-btn">
+                  Sign In
                   <ArrowRight size={18} />
                 </Link>
                 <a href="#features" className="secondary-btn" onClick={(event) => scrollToSection(event, 'features')}>
@@ -494,15 +494,16 @@ function Landing() {
               Manage schedules, monitor computers, and keep laboratory operations organized with
               SMARTLAB.
             </p>
-            <Link to="/register" className="primary-btn cta-btn">
-              Get Started
+            <Link to="/login" className="primary-btn cta-btn">
+              Sign In
             </Link>
 
             {/*
               The ways to reach a person, next to the button that does not
-              need one. Somebody who is not ready to create an account is
-              usually the one with a question, so the answer to "who do I
-              ask?" belongs here rather than only in the footer.
+              need one. Accounts are issued by the laboratory rather than
+              signed up for, so "who do I ask?" is the question this page
+              most has to answer, and it belongs here and not only in the
+              footer.
             */}
             <ul className="cta-contacts">
               <li>

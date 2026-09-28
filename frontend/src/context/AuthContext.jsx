@@ -60,18 +60,6 @@ export function AuthProvider({ children }) {
     return me;
   }, []);
 
-  const register = useCallback(async (payload) => {
-    const me = await authService.register(payload);
-    setUser(me);
-    return me;
-  }, []);
-
-  const registerAdmin = useCallback(async (payload) => {
-    const me = await authService.registerAdmin(payload);
-    setUser(me);
-    return me;
-  }, []);
-
   const logout = useCallback(async () => {
     await authService.logout();
     setUser(null);
@@ -82,8 +70,6 @@ export function AuthProvider({ children }) {
       user,
       loading,
       login,
-      register,
-      registerAdmin,
       logout,
       setUser,
       isAuthenticated: Boolean(user),
@@ -93,7 +79,7 @@ export function AuthProvider({ children }) {
       profilePath: user ? PROFILE_BY_ROLE[user.role] ?? '/' : '/',
       isSuperAdmin: user?.role === 'super_admin',
     }),
-    [user, loading, login, register, registerAdmin, logout]
+    [user, loading, login, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

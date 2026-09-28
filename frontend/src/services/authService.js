@@ -13,21 +13,6 @@ export const authService = {
     return res.data.user;
   },
 
-  async register(payload) {
-    const res = await api.post('/auth/register', payload);
-    tokenStore.set(res.data.token);
-    portalStore.set('public');
-    return res.data.user;
-  },
-
-  /** Administrator signup — requires the ADMIN_SIGNUP_CODE from the server. */
-  async registerAdmin(payload) {
-    const res = await api.post('/auth/register-admin', payload);
-    tokenStore.set(res.data.token);
-    portalStore.set('admin');
-    return res.data.user;
-  },
-
   async me() {
     const res = await api.get('/auth/me');
     return res.data;
