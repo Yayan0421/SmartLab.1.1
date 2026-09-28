@@ -5,6 +5,10 @@ import asyncHandler from '../utils/asyncHandler.js';
 import { getPagination, paginated } from '../utils/pagination.js';
 import { recordAudit } from '../services/auditService.js';
 import { notify, notifyAdmins } from '../services/notificationService.js';
+import {
+  publishReservationChange,
+  onReservationChange,
+} from '../services/reservationEvents.js';
 import { isAdminLike } from '../utils/roles.js';
 import {
   validateReservationRequest,
@@ -232,6 +236,7 @@ export const createReservation = asyncHandler(async (req, res) => {
     entityId: data.id,
     details: { computer: computer.name, status },
   });
+  publishReservationChange({ id: data.id, userId: data.user_id, status: status, action: 'create' });
 
   if (status === 'PENDING') {
     await notifyAdmins({
@@ -304,6 +309,7 @@ export const approveReservation = asyncHandler(async (req, res) => {
   if (!data) throw ApiError.conflict('This reservation was already decided by someone else.');
 
   await recordAudit(req, { action: 'reservation.approve', entity: 'reservations', entityId: reservation.id });
+  publishReservationChange({ id: reservation.id, userId: reservation.user_id, status: 'APPROVED', action: 'approve' });
   await notify(reservation.user_id, {
     title: 'Reservation approved',
     message: `${reservation.computer?.name ?? 'Your computer'} is reserved for you on ${reservation.reservation_date}.`,
@@ -312,6 +318,52 @@ export const approveReservation = asyncHandler(async (req, res) => {
 
   res.json({ success: true, data: flatten(data) });
 });
+
+/**
+ * GET /api/reservations/stream — server-sent events.
+ *
+ * Holds the connection open and writes a line whenever a reservation
+ * changes, so an approval reaches the person who made the request without
+ * them refreshing anything.
+ *
+ * Each subscriber is filtered by the role it connected with: an
+ * administrator hears about every reservation, everybody else only about
+ * their own. The payload carries no detail beyond an id and a status - the
+ * page refetches through the ordinary endpoints, which re-check permission
+ * the usual way. Nothing here becomes a second way to read data.
+ */
+export const streamReservations = (req, res) => {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+    // Render and most proxies buffer responses by default, which would
+    // hold every event back until the connection closed.
+    'X-Accel-Buffering': 'no',
+  });
+
+  // How long the browser waits before reconnecting if this drops.
+  res.write('retry: 5000\n\n');
+  res.write('event: ready\ndata: {}\n\n');
+
+  const isAdmin = isAdminLike(req.user.role);
+  const mine = req.user.id;
+
+  const unsubscribe = onReservationChange((event) => {
+    if (!isAdmin && event.user_id !== mine) return;
+    res.write(`event: reservation\ndata: ${JSON.stringify(event)}\n\n`);
+  });
+
+  // A comment line every 25s: proxies drop idle connections, and this is
+  // cheaper than letting the browser reconnect every minute.
+  const keepAlive = setInterval(() => res.write(': ping\n\n'), 25_000);
+
+  req.on('close', () => {
+    clearInterval(keepAlive);
+    unsubscribe();
+    res.end();
+  });
+};
 
 /** PATCH /api/reservations/:id/reject — admin only. */
 export const rejectReservation = asyncHandler(async (req, res) => {
@@ -339,6 +391,7 @@ export const rejectReservation = asyncHandler(async (req, res) => {
     entityId: reservation.id,
     details: { note: req.body?.note || null },
   });
+  publishReservationChange({ id: reservation.id, userId: reservation.user_id, status: 'REJECTED', action: 'reject' });
 
   await notify(reservation.user_id, {
     title: 'Reservation rejected',
@@ -382,6 +435,7 @@ export const cancelReservation = asyncHandler(async (req, res) => {
   if (!data) throw ApiError.conflict('This reservation is no longer active.');
 
   await recordAudit(req, { action: 'reservation.cancel', entity: 'reservations', entityId: reservation.id });
+  publishReservationChange({ id: reservation.id, userId: reservation.user_id, status: 'CANCELLED', action: 'cancel' });
 
   if (!isOwner) {
     await notify(reservation.user_id, {
@@ -573,6 +627,7 @@ export const createBulkReservation = asyncHandler(async (req, res) => {
     entity: 'reservations',
     details: { count: unique.length, subject, computers: names },
   });
+  publishReservationChange({ id: null, userId: req.user.id, status: status, action: 'create_bulk' });
 
   if (status === 'PENDING') {
     await notifyAdmins({

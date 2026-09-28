@@ -2,6 +2,7 @@ import { useState } from 'react';
 import reservationService from '../../services/reservationService.js';
 import useFetch from '../../hooks/useFetch.js';
 import useRefreshOnFocus from '../../hooks/useRefreshOnFocus.js';
+import useReservationStream from '../../hooks/useReservationStream.js';
 import { useToast } from '../../context/ToastContext.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
 import Spinner from '../../components/Spinner.jsx';
@@ -44,6 +45,11 @@ export default function MyReservationsPage() {
   // An admin may approve or reject while this page sits open, so pick up
   // the change as soon as the user comes back to the tab.
   useRefreshOnFocus(refetch);
+
+  // An administrator deciding this request is the one change that happens
+  // while the page just sits there. The server pushes it, so the status
+  // turns over without anybody pressing anything.
+  useReservationStream(refetch);
 
   const reservations = data?.data ?? [];
 

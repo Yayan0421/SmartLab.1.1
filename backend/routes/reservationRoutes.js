@@ -14,6 +14,11 @@ const router = Router();
 
 router.use(authenticate);
 
+// The live feed. A long-lived response, so it sits with the own-scope
+// routes: the handler filters by role, an administrator hearing about
+// every reservation and everybody else only about their own.
+router.get('/stream', reservationController.streamReservations);
+
 // Own-scope routes: any signed-in role.
 router.get('/my', validate(listReservationsQuerySchema, 'query'), reservationController.listMyReservations);
 router.get('/summary', reservationController.myReservationSummary);

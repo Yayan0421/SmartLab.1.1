@@ -3,6 +3,7 @@ import reservationService from '../../services/reservationService.js';
 import computerService from '../../services/computerService.js';
 import useFetch from '../../hooks/useFetch.js';
 import useRefreshOnFocus from '../../hooks/useRefreshOnFocus.js';
+import useReservationStream from '../../hooks/useReservationStream.js';
 import useDebounce from '../../hooks/useDebounce.js';
 import adminService from '../../services/adminService.js';
 import ReservationGroups from './ReservationGroups.jsx';
@@ -67,6 +68,13 @@ export default function AdminReservations() {
   );
 
   useRefreshOnFocus(() => {
+    refetch();
+    refetchStats();
+  });
+
+  // Requests arrive while this page is open, and two administrators may be
+  // deciding the same queue. Both see the list move.
+  useReservationStream(() => {
     refetch();
     refetchStats();
   });
